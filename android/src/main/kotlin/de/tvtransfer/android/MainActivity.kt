@@ -66,6 +66,33 @@ class AndroidPlatform(private val ctx: Context) : Platform {
     override fun openBrowser(url: String) {
         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
+
+    override val appVersion: String = runCatching {
+        ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
+    }.getOrNull() ?: "1.0.0"
+
+    override val updateAssetName: String = de.tvtransfer.update.UpdateChecker.APK_NAME
+
+    /** Öffnet den Android-Installer (die neue APK ist mit demselben Schlüssel signiert – Daten bleiben erhalten). */
+    override fun installUpdate(file: File): String? {
+        if (!ctx.packageManager.canRequestPackageInstalls()) {
+            runCatching {
+                ctx.startActivity(
+                    Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+            return "Bitte \"Unbekannte Apps installieren\" für TV-App-Transfer erlauben, zurückkehren und erneut \"Jetzt aktualisieren\" tippen."
+        }
+        return runCatching {
+            val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+            ctx.startActivity(
+                Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            null
+        }.getOrElse { "Installer konnte nicht geöffnet werden: ${it.message}" }
+    }
 }
 
 data class InstalledApp(val label: String, val pkg: String, val files: List<File>, val system: Boolean, val icon: ImageBitmap?)

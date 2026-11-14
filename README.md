@@ -17,11 +17,29 @@ Es gibt das Programm als **Windows-Programm (EXE)** und als **Android-App (APK)*
 
 ## Downloads
 
-Unter **Releases** in diesem Repository:
+**Immer die aktuelle Version:** https://github.com/Schnielz87/Portiva-Downloads/tree/main/TV-App-Transfer
+(Ausweichquelle: [Releases dieses Repositorys](https://github.com/Schnielz87/Samsung-TV-App-Konverter-Transfer/releases/latest))
 
-- `TV-App-Transfer-Setup.exe`: Windows-Installer
-- `TV-App-Transfer-Portable.zip`: Windows ohne Installation (entpacken und `TV-App-Transfer.exe` starten)
-- `TV-App-Transfer.apk`: für Android-Handy oder -Tablet
+| Gerät | Datei |
+|---|---|
+| Windows-PC (Installer) | `TV-App-Transfer-Setup.exe` |
+| Windows-PC (ohne Installation) | `TV-App-Transfer-Portable.zip`: entpacken und `TV-App-Transfer.exe` starten |
+| Android-Handy/Tablet | `TV-App-Transfer.apk` |
+
+- **PC:** Führen Sie das Setup aus. Bei der Windows-Warnung klicken Sie auf „Weitere Informationen“ und dann auf „Trotzdem ausführen“.
+- **Handy:** Tippen Sie die APK an und installieren Sie sie. Dafür müssen Sie einmalig „Installation aus unbekannten Quellen“ erlauben.
+
+### Updates
+
+Beide Apps prüfen automatisch alle 24 Stunden, ob es eine neue Version gibt. Sie können auch jederzeit unten im Programm
+auf **Nach Updates suchen** klicken. Gibt es eine neue Version, erscheint oben ein Hinweis. Ein Klick auf
+**Jetzt aktualisieren** lädt die neue Version und startet die Installation:
+
+- **Windows:** Der Installer startet, und das Programm schließt sich dafür kurz.
+- **Android:** Der Android-Installer öffnet sich. Beim ersten Mal fragt Android, ob TV-App-Transfer Apps
+  installieren darf. Erlauben Sie das, kehren Sie zurück und tippen Sie erneut auf „Jetzt aktualisieren“.
+
+Ihre Samsung-Zertifikate, gespeicherten Geräte und Einstellungen bleiben bei jedem Update erhalten.
 
 ## Einmalige Vorbereitung am Samsung-Fernseher (ca. 2 Minuten)
 
@@ -106,6 +124,12 @@ gradle :desktop:packageExe        # Windows-Installer (auf Windows)
 gradle :android:assembleRelease   # APK (Android SDK nötig)
 ```
 
-Für dauerhaft gleich signierte APKs (Updates ohne Neuinstallation) können Sie die Secrets
-`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und `ANDROID_KEY_PASSWORD` hinterlegen.
-Ohne diese Secrets wird mit einem Testschlüssel signiert.
+**Versionen & Updates (Schema wie PowerIPTV/Portiva):** Die Version lautet `1.0.<Laufnummer>` von `.github/workflows/build.yml`.
+Benennen Sie diese Datei nie um, sonst beginnt die Zählung neu. Jeder Push erzeugt das Release `tv-app-transfer-v1.0.<Lauf>`.
+Mit dem Secret `DOWNLOADS_TOKEN` landet es im öffentlichen Repo `Schnielz87/Portiva-Downloads` (Ordner `TV-App-Transfer`),
+ohne das Secret im eigenen Repo. Die Apps prüfen beide Orte (`UpdateChecker.REPOS`).
+Die festen Dateinamen (`UpdateChecker.APK_NAME`, `WINDOWS_SETUP_NAME`) dürfen nicht geändert werden.
+
+Die APK ist mit dem festen Schlüssel `android/signing/sideload.jks` signiert, damit sich Updates über die alte Version installieren lassen.
+Optional ersetzen die Secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und
+`ANDROID_KEY_PASSWORD` diesen Schlüssel. Achtung: Ein Schlüsselwechsel erfordert einmalig eine Neuinstallation.

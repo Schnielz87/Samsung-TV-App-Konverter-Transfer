@@ -21,21 +21,30 @@ android {
         versionName = appVersion
     }
 
-    val keystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
-        if (keystore != null) create("release") {
-            storeFile = keystore
-            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+        // Fester Schlüssel für die direkte Installation (wie in den anderen Apps), damit sich jede neue
+        // Version über die alte installieren lässt und Zertifikate/Einstellungen erhalten bleiben.
+        // Optional per GitHub-Secrets ersetzbar (ANDROID_KEYSTORE_BASE64 …).
+        create("sideload") {
+            val secretFile = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+            if (secretFile != null) {
+                storeFile = secretFile
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            } else {
+                storeFile = file("signing/sideload.jks")
+                storePassword = "tvapptransfer"
+                keyAlias = "tvapptransfer"
+                keyPassword = "tvapptransfer"
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Ohne hinterlegten Schlüssel: Debug-Schlüssel (wird automatisch erzeugt)
-            signingConfig = signingConfigs.getByName(if (keystore != null) "release" else "debug")
+            signingConfig = signingConfigs.getByName("sideload")
         }
     }
 
@@ -62,5 +71,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }

@@ -7,3 +7,6 @@
 - Signatur-Änderungen immer mit `SignerTest` absichern (XML-DSig-Prüfung + feste #prop-Prüfsummen).
 - Prüfen: `gradle :core:test :desktop:compileKotlin`. Android baut nur mit SDK (CI).
 - README (Kundenanleitung, Sie-Form) bei jeder Funktionsänderung mitpflegen.
+- Versionen & Updates: `1.0.<Laufnummer>` aus `.github/workflows/build.yml` (nie umbenennen), Tag `tv-app-transfer-v…`,
+  Releases in `Schnielz87/Portiva-Downloads` (Secret `DOWNLOADS_TOKEN`), sonst im eigenen Repo. Feste Dateinamen in
+  `update/UpdateChecker.kt` nicht ändern. APK-Schlüssel `android/signing/sideload.jks` nie austauschen (sonst keine Updates).

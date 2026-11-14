@@ -26,6 +26,15 @@ dependencies {
 
 val appVersion = (findProperty("appVersion") as String?) ?: "1.0.0"
 
+// Version für die Update-Prüfung ins Programm schreiben
+val versionDir = layout.buildDirectory.dir("generated/version")
+val writeVersion by tasks.registering {
+    inputs.property("v", appVersion)
+    outputs.dir(versionDir)
+    doLast { versionDir.get().file("tvtransfer-version.properties").asFile.apply { parentFile.mkdirs(); writeText("version=$appVersion\n") } }
+}
+sourceSets["main"].resources.srcDir(writeVersion)
+
 compose.desktop {
     application {
         mainClass = "de.tvtransfer.desktop.MainKt"

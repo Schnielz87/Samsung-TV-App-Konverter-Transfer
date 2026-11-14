@@ -106,9 +106,11 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
         Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1.4f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Header()
+                UpdateBanner(s, controller)
                 SourceCard(s, controller, host, dropHighlight)
                 TargetCard(s, controller)
                 ActionCard(s, controller, host)
+                UpdateCard(s, controller)
             }
             Column(Modifier.weight(1f)) { LogCard(s, Modifier.fillMaxSize()) }
         }
@@ -118,10 +120,12 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Header()
+            UpdateBanner(s, controller)
             SourceCard(s, controller, host, dropHighlight)
             TargetCard(s, controller)
             ActionCard(s, controller, host)
             LogCard(s, Modifier.fillMaxWidth().height(260.dp))
+            UpdateCard(s, controller)
         }
     }
     LoginDialog(s, controller)
@@ -366,6 +370,49 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
         if (s.waitingForStickConfirm) Message("Bitte jetzt am Fernseher \"USB-Debugging zulassen\" bestätigen.", Brand.warn)
         s.error?.let { Message(it, Brand.bad) }
         s.success?.let { Message(it, Brand.ok) }
+    }
+}
+
+/** Hinweis oben, sobald eine neue Version bereitsteht (wie in PowerIPTV/Portiva). */
+@Composable
+private fun UpdateBanner(s: UiState, c: TransferController) {
+    val u = s.update ?: return
+    Surface(color = Brand.accent.copy(alpha = 0.14f), border = BorderStroke(1.dp, Brand.accent), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Neue Version ${u.version} verfügbar", color = Brand.text, fontWeight = FontWeight.Bold)
+            Text("Installiert: ${s.appVersion}. Ihre Zertifikate, Geräte und Einstellungen bleiben beim Update erhalten.", color = Brand.muted, fontSize = 13.sp)
+            UpdateProgress(s)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = c::updateNow, enabled = s.updateProgress == null) { Text("Jetzt aktualisieren") }
+                TextButton(onClick = c::dismissUpdate) { Text("Später") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdateProgress(s: UiState) {
+    s.updateProgress?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth()) }
+    s.updateStatus?.let { Text(it, color = Brand.muted, fontSize = 12.sp) }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun UpdateCard(s: UiState, c: TransferController) {
+    Card(colors = CardDefaults.cardColors(containerColor = Brand.card), border = BorderStroke(1.dp, Brand.border), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Version ${s.appVersion}", color = Brand.text, fontWeight = FontWeight.SemiBold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { c.checkForUpdates() }, enabled = !s.checkingUpdate && s.updateProgress == null) {
+                    Text(if (s.checkingUpdate) "Suche …" else "Nach Updates suchen")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { c.setAutoUpdateCheck(!s.autoUpdateCheck) }) {
+                    androidx.compose.material3.Checkbox(checked = s.autoUpdateCheck, onCheckedChange = c::setAutoUpdateCheck)
+                    Text("Automatisch prüfen (alle 24 Stunden)", color = Brand.text, fontSize = 13.sp)
+                }
+            }
+            if (s.update == null) UpdateProgress(s)
+        }
     }
 }
 

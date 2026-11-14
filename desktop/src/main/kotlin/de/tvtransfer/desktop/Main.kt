@@ -39,6 +39,24 @@ class DesktopPlatform : Platform {
     override val cacheDir: File = File(base, "cache").apply { mkdirs() }
     override val deviceLabel: String = runCatching { java.net.InetAddress.getLocalHost().hostName }.getOrDefault("PC")
 
+    override val appVersion: String = runCatching {
+        java.util.Properties().apply { DesktopPlatform::class.java.getResourceAsStream("/tvtransfer-version.properties")!!.use { load(it) } }.getProperty("version")
+    }.getOrNull() ?: "1.0.0"
+
+    override val updateAssetName: String = de.tvtransfer.update.UpdateChecker.WINDOWS_SETUP_NAME
+
+    /** Startet den neuen Installer und beendet das Programm, damit die Dateien ersetzt werden können. */
+    override fun installUpdate(file: File): String? {
+        if (!System.getProperty("os.name").startsWith("Windows")) return "Automatische Installation nur unter Windows. Datei: ${file.absolutePath}"
+        return try {
+            ProcessBuilder(file.absolutePath).start()
+            Thread { Thread.sleep(1500); kotlin.system.exitProcess(0) }.start()
+            null
+        } catch (e: Exception) {
+            "Installer konnte nicht gestartet werden: ${e.message}"
+        }
+    }
+
     override fun openBrowser(url: String) {
         runCatching { Desktop.getDesktop().browse(URI(url)) }.onFailure {
             // Fallback für Systeme ohne Desktop-Unterstützung

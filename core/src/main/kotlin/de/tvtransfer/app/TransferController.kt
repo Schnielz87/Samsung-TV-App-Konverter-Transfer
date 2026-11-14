@@ -19,6 +19,10 @@ import de.tvtransfer.sign.WidgetSigner
 import de.tvtransfer.stick.AndroidStick
 import de.tvtransfer.tv.SamsungTv
 import de.tvtransfer.tv.TvModel
+import de.tvtransfer.update.ReleaseInfo
+import de.tvtransfer.update.UpdateChecker
+import kotlinx.coroutines.delay
+import java.util.Properties
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +46,13 @@ interface Platform {
     /** Name dieses Geräts (erscheint z. B. beim "Debugging zulassen?"-Dialog am Stick). */
     val deviceLabel: String
     fun openBrowser(url: String)
+
+    /** Installierte Version, z. B. "1.0.12" (0 als letzte Zahl = Entwicklerversion ohne Update-Prüfung). */
+    val appVersion: String
+    /** Datei im Release, die diese Plattform zum Aktualisieren braucht (APK bzw. Windows-Setup). */
+    val updateAssetName: String
+    /** Startet die Installation der heruntergeladenen Datei. Gibt bei Problemen einen Hinweis zurück, sonst null. */
+    fun installUpdate(file: File): String?
 }
 
 enum class Signing(val label: String, val description: String) {
@@ -79,6 +90,12 @@ data class UiState(
     val signing: Signing = Signing.SAMSUNG,
     val ownAddresses: List<String> = emptyList(),
     val lastWgt: File? = null,
+    val appVersion: String = "",
+    val update: ReleaseInfo? = null,
+    val updateStatus: String? = null,
+    val updateProgress: Float? = null,
+    val checkingUpdate: Boolean = false,
+    val autoUpdateCheck: Boolean = true,
 )
 
 class TransferController(private val platform: Platform) {
@@ -91,11 +108,94 @@ class TransferController(private val platform: Platform) {
     private val settingsFile = File(platform.dataDir, "einstellungen.json")
     private var login: LoginReceiver? = null
     private var job: Job? = null
+    private val updater = UpdateChecker()
+    private val updateFile = File(platform.dataDir, "update.properties")
+    private val updateProps: Properties by lazy { Properties().apply { if (updateFile.exists()) runCatching { updateFile.inputStream().use { load(it) } } } }
+    private val currentBuild: Int get() = UpdateChecker.buildOf(platform.appVersion) ?: 0
 
     init {
         loadSettings()
         refreshCertInfo()
-        _state.update { it.copy(ownAddresses = Discovery.localAddresses()) }
+        _state.update { it.copy(ownAddresses = Discovery.localAddresses(), appVersion = platform.appVersion, autoUpdateCheck = updateProps.getProperty("auto") != "false") }
+        startAutoUpdateCheck()
+    }
+
+    // ------------------------------------------------------------------ Updates (wie PowerIPTV/Portiva)
+
+
+    private fun saveUpdateProps() = runCatching { updateFile.parentFile.mkdirs(); updateFile.outputStream().use { updateProps.store(it, null) } }
+
+    /** Beim Start und danach stündlich nachsehen, ob 24 Stunden seit der letzten Prüfung vergangen sind. */
+    private fun startAutoUpdateCheck() {
+        if (currentBuild <= 0) return // Entwicklerversion
+        scope.launch {
+            while (true) {
+                val last = updateProps.getProperty("last")?.toLongOrNull() ?: 0L
+                if (_state.value.autoUpdateCheck && System.currentTimeMillis() - last > UpdateChecker.INTERVAL) checkForUpdates(silent = true)
+                delay(3600_000L)
+            }
+        }
+    }
+
+    fun setAutoUpdateCheck(on: Boolean) {
+        updateProps.setProperty("auto", on.toString()); saveUpdateProps()
+        _state.update { it.copy(autoUpdateCheck = on) }
+    }
+
+    /** Prüft auf eine neuere Version. Mit [installIfNew] wird sie gleich geladen und installiert. */
+    fun checkForUpdates(silent: Boolean = false, installIfNew: Boolean = false) {
+        if (_state.value.checkingUpdate) return
+        _state.update { it.copy(checkingUpdate = true, updateStatus = if (silent) it.updateStatus else "Suche nach Updates …") }
+        scope.launch {
+            try {
+                val r = updater.latest()
+                updateProps.setProperty("last", System.currentTimeMillis().toString()); saveUpdateProps()
+                val newer = r.takeIf { it.build > currentBuild && it.assets.containsKey(platform.updateAssetName) }
+                val dismissed = (updateProps.getProperty("dismissed")?.toIntOrNull() ?: 0) >= (newer?.build ?: Int.MAX_VALUE)
+                _state.update {
+                    it.copy(
+                        update = if (silent && dismissed) null else newer,
+                        updateStatus = if (newer != null) "Neue Version ${newer.version} verfügbar." else "Sie haben die neueste Version (${platform.appVersion}).",
+                    )
+                }
+                if (newer != null) log("Update verfügbar: Version ${newer.version}")
+                if (installIfNew && newer != null) downloadAndInstall(newer)
+            } catch (e: Exception) {
+                if (!silent) _state.update { it.copy(updateStatus = e.message ?: "Update-Prüfung fehlgeschlagen.") }
+            } finally {
+                _state.update { it.copy(checkingUpdate = false) }
+            }
+        }
+    }
+
+    /** Ein Klick: prüfen bzw. die gefundene Version laden und installieren. */
+    fun updateNow() {
+        val r = _state.value.update
+        if (r == null) checkForUpdates(silent = false, installIfNew = true) else scope.launch { downloadAndInstall(r) }
+    }
+
+    fun dismissUpdate() {
+        _state.value.update?.let { updateProps.setProperty("dismissed", it.build.toString()); saveUpdateProps() }
+        _state.update { it.copy(update = null) }
+    }
+
+    private fun downloadAndInstall(r: ReleaseInfo) {
+        if (_state.value.updateProgress != null) return
+        val url = r.assets[platform.updateAssetName] ?: return
+        _state.update { it.copy(updateProgress = 0f, updateStatus = "Lade Version ${r.version} …") }
+        try {
+            val dir = File(platform.cacheDir, "update").apply { mkdirs() }
+            dir.listFiles()?.forEach { if (it.name != platform.updateAssetName) it.delete() }
+            val file = updater.download(url, File(dir, "${r.version}-${platform.updateAssetName}")) { done, total ->
+                if (total > 0) _state.update { it.copy(updateProgress = done.toFloat() / total) }
+            }
+            val problem = platform.installUpdate(file)
+            _state.update { it.copy(updateStatus = problem ?: "Installation wird gestartet …") }
+        } catch (e: Exception) {
+            _state.update { it.copy(updateStatus = e.message ?: "Download fehlgeschlagen.") }
+        } finally {
+            _state.update { it.copy(updateProgress = null) }
+        }
     }
 
     // ------------------------------------------------------------------ Quelle

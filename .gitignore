@@ -7,3 +7,4 @@ local.properties
 /release/
 *.keystore
 *.jks
+!android/signing/sideload.jks
