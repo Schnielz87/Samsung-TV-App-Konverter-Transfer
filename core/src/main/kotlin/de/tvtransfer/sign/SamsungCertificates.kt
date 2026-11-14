@@ -41,12 +41,30 @@ object SamsungCertificates {
         return stream.use { CertificateFactory.getInstance("X.509").generateCertificate(it) as X509Certificate }
     }
 
+    /**
+     * Ergänzt das passende Samsung-Zwischenzertifikat anhand des Ausstellers des eigenen Zertifikats
+     * (Autor / Verteiler Public / Verteiler Partner). Ein falsches Zwischenzertifikat lässt der Fernseher nicht zu.
+     */
+    fun completeChain(id: SigningIdentity): SigningIdentity {
+        val leaf = id.chain.firstOrNull() ?: return id
+        val ca = listOf("vd_tizen_dev_author_ca.cer", "vd_tizen_dev_public2.crt", "vd_tizen_dev_partner2.crt")
+            .map { caCert(it) }
+            .firstOrNull { it.subjectX500Principal == leaf.issuerX500Principal }
+            ?: return id
+        return SigningIdentity(id.privateKey, listOf(leaf, ca))
+    }
+
+    /** Kurzname eines Zertifikats für das Protokoll (CN). */
+    fun cn(c: X509Certificate, issuer: Boolean = false): String =
+        (if (issuer) c.issuerX500Principal else c.subjectX500Principal).name.split(',').map { it.trim() }
+            .firstOrNull { it.startsWith("CN=") }?.removePrefix("CN=") ?: "?"
+
     fun newKeyPair(): KeyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
 
     fun requestAuthor(access: SamsungAccess, keyPair: KeyPair, name: String): SigningIdentity {
         val csr = Csr.author(keyPair, name)
         val cert = post("$CA_BASE/authors", access, csr, "author.csr", extra = emptyList())
-        return SigningIdentity(keyPair.private, listOf(cert, caCert("vd_tizen_dev_author_ca.cer")))
+        return completeChain(SigningIdentity(keyPair.private, listOf(cert, caCert("vd_tizen_dev_author_ca.cer"))))
     }
 
     fun requestDistributor(access: SamsungAccess, keyPair: KeyPair, duids: List<String>): SigningIdentity {
@@ -56,7 +74,7 @@ object SamsungCertificates {
             extra = listOf(Http.Part("privilege_level", PRIVILEGE), Http.Part("developer_type", "Individual")),
         )
         val ca = if (PRIVILEGE == "Partner") "vd_tizen_dev_partner2.crt" else "vd_tizen_dev_public2.crt"
-        return SigningIdentity(keyPair.private, listOf(cert, caCert(ca)))
+        return completeChain(SigningIdentity(keyPair.private, listOf(cert, caCert(ca))))
     }
 
     private fun post(url: String, access: SamsungAccess, csr: String, fileName: String, extra: List<Http.Part>): X509Certificate {
@@ -103,8 +121,8 @@ class CertStore(private val dir: File) {
 
     fun covers(duid: String): Boolean = hasCertificate && duid in duids
 
-    fun author(): SigningIdentity = load(authorFile)
-    fun distributor(): SigningIdentity = load(distributorFile)
+    fun author(): SigningIdentity = SamsungCertificates.completeChain(load(authorFile))
+    fun distributor(): SigningIdentity = SamsungCertificates.completeChain(load(distributorFile))
 
     /**
      * Erstellt (oder erweitert) das Zertifikat so, dass alle bisherigen Fernseher plus [duid] enthalten sind.

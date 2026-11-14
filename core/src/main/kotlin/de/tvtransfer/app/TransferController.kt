@@ -425,7 +425,11 @@ class TransferController(private val platform: Platform) {
                 conn = connectTv(device.host)
             }
             status("Signiere …")
-            val signed = WidgetSigner.sign(built.wgt, certs.author(), certs.distributor())
+            val author = certs.author()
+            val dist = certs.distributor()
+            log("Zertifikate: Autor ← ${SamsungCertificates.cn(author.chain.first(), issuer = true)}, " +
+                "Verteiler ← ${SamsungCertificates.cn(dist.chain.first(), issuer = true)} (Kette: ${dist.chain.size})")
+            val signed = WidgetSigner.sign(built.wgt, author, dist)
             status("Installiere auf ${device.name} …")
             val res = SamsungTv.install(conn, signed, isWgt, ::log) { sent, total -> progress(sent, total) }
             if (res.success) {
