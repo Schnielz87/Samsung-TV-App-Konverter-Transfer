@@ -124,7 +124,7 @@ object SamsungTv {
                 "Der Fernseher hat das Zertifikat bzw. die Signatur abgelehnt (Code 118012). Häufigste Ursache: Diese App ist auf dem " +
                     "Fernseher bereits installiert – aber mit einem anderen Zertifikat (z. B. früher über Tizen Studio oder einen USB-Stick). " +
                     "Dann bitte die App am Fernseher zuerst löschen (Apps → App auswählen → Optionen/Zahnrad → Löschen) und erneut übertragen. " +
-                    "Hilft das nicht, unter „Rechtliches“ nichts ändern, sondern das Protokoll kopieren und an den Support schicken.",
+                    "Hilft das nicht, bitte das Protokoll kopieren und an den Support schicken."
             lower.contains("certificate") || lower.contains("signature") || lower.contains("-12") ->
                 "Zertifikat passt nicht zu diesem Fernseher. Bitte unter \"Zertifikat\" neu erstellen, damit die Geräte-ID dieses Fernsehers enthalten ist."
             lower.contains("privilege") -> "Die App verlangt Rechte, die der Fernseher nicht zulässt."
