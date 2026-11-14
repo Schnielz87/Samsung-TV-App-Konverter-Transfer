@@ -26,3 +26,13 @@ class CounterpartTest {
         assertEquals(listOf("config.xml", "index.html", "js/app.js"), files.keys.toList())
     }
 }
+
+class ChainTest {
+    @org.junit.jupiter.api.Test
+    fun bundledCasCoverAuthorAndDistributorIssuers() {
+        val names = listOf("Samsung VD Author CA", "Samsung Author CA Class", "VD DEVELOPER Public CA Class", "VD DEVELOPER Partner CA Class", "VD DEVELOPER Public CA Class", "VD DEVELOPER Partner CA Class")
+        val subjects = listOf("vd_tizen_dev_author_ca2.cer", "vd_tizen_dev_author_ca.cer", "vd_tizen_dev_public2_2075.crt", "vd_tizen_dev_partner2_2075.crt", "vd_tizen_dev_public2.crt", "vd_tizen_dev_partner2.crt")
+            .map { de.tvtransfer.sign.SamsungCertificates.cn(de.tvtransfer.sign.SamsungCertificates.caCert(it)) }
+        kotlin.test.assertEquals(names, subjects)
+    }
+}

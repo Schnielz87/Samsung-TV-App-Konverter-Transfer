@@ -2,7 +2,7 @@
 
 Fire TV, Android und Google TV sind Marken ihrer jeweiligen Rechteinhaber. Alle Herstellernamen werden nur beschreibend verwendet, um die Kompatibilität zu erklären.
 
-Das Programm enthält öffentliche Zwischenzertifikate der Samsung-Entwicklerzertifizierung (aus der „Samsung Certificate Extension“ für Tizen Studio). Sie werden nur benötigt, damit ein mit Ihrem eigenen Samsung-Zertifikat signiertes Paket vom Fernseher geprüft werden kann.
+Das Programm enthält öffentliche Zwischenzertifikate der Samsung-Entwicklerzertifizierung (aus der „Samsung Certificate Extension“ für Tizen Studio, Versionen 2.0.70 und 2.0.75). Sie werden nur benötigt, damit ein mit Ihrem eigenen Samsung-Zertifikat signiertes Paket vom Fernseher geprüft werden kann.
 
 Verwendete Open-Source-Komponenten: Kotlin und kotlinx.coroutines (Apache License 2.0), Jetpack Compose / Compose Multiplatform (Apache License 2.0), AndroidX (Apache License 2.0).
 

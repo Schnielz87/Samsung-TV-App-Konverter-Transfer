@@ -47,12 +47,24 @@ object SamsungCertificates {
      */
     fun completeChain(id: SigningIdentity): SigningIdentity {
         val leaf = id.chain.firstOrNull() ?: return id
-        val ca = listOf("vd_tizen_dev_author_ca.cer", "vd_tizen_dev_public2.crt", "vd_tizen_dev_partner2.crt")
-            .map { caCert(it) }
-            .firstOrNull { it.subjectX500Principal == leaf.issuerX500Principal }
+        // Samsung hat die Zwischenstellen erneuert (gleicher Name, neuer Schlüssel) → nur die nehmen, die das Zertifikat
+        // nachweislich unterschrieben hat. *_2075 = Stand Samsung Certificate Extension 2.0.75.
+        val ca = BUNDLED_CAS.map { caCert(it) }
+            .filter { it.subjectX500Principal == leaf.issuerX500Principal }
+            .firstOrNull { c -> runCatching { leaf.verify(c.publicKey) }.isSuccess }
             ?: return id
         return SigningIdentity(id.privateKey, listOf(leaf, ca))
     }
+
+    private val BUNDLED_CAS = listOf(
+        "vd_tizen_dev_author_ca2.cer", "vd_tizen_dev_author_ca.cer",
+        "vd_tizen_dev_public2_2075.crt", "vd_tizen_dev_public2.crt",
+        "vd_tizen_dev_partner2_2075.crt", "vd_tizen_dev_partner2.crt",
+    )
+
+    /** true, wenn das beigelegte Zwischenzertifikat das eigene Zertifikat wirklich unterschrieben hat. */
+    fun chainValid(id: SigningIdentity): Boolean =
+        id.chain.size >= 2 && runCatching { id.chain[0].verify(id.chain[1].publicKey) }.isSuccess
 
     /** Kurzname eines Zertifikats für das Protokoll (CN). */
     fun cn(c: X509Certificate, issuer: Boolean = false): String =
@@ -73,7 +85,7 @@ object SamsungCertificates {
             "$CA_BASE/distributors", access, csr, "distributor.csr",
             extra = listOf(Http.Part("privilege_level", PRIVILEGE), Http.Part("developer_type", "Individual")),
         )
-        val ca = if (PRIVILEGE == "Partner") "vd_tizen_dev_partner2.crt" else "vd_tizen_dev_public2.crt"
+        val ca = if (PRIVILEGE == "Partner") "vd_tizen_dev_partner2_2075.crt" else "vd_tizen_dev_public2_2075.crt"
         return completeChain(SigningIdentity(keyPair.private, listOf(cert, caCert(ca))))
     }
 

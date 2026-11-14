@@ -428,7 +428,11 @@ class TransferController(private val platform: Platform) {
             val author = certs.author()
             val dist = certs.distributor()
             log("Zertifikate: Autor ← ${SamsungCertificates.cn(author.chain.first(), issuer = true)}, " +
-                "Verteiler ← ${SamsungCertificates.cn(dist.chain.first(), issuer = true)} (Kette: ${dist.chain.size})")
+                "Verteiler ← ${SamsungCertificates.cn(dist.chain.first(), issuer = true)} " +
+                "(Kette geprüft: Autor ${if (SamsungCertificates.chainValid(author)) "ok" else "FEHLT"}, " +
+                "Verteiler ${if (SamsungCertificates.chainValid(dist)) "ok" else "FEHLT"})")
+            if (!SamsungCertificates.chainValid(author) || !SamsungCertificates.chainValid(dist))
+                return fail("Zu Ihrem Samsung-Zertifikat fehlt das passende Samsung-Zwischenzertifikat im Programm. Bitte das Protokoll kopieren und an den Support schicken.")
             val signed = WidgetSigner.sign(built.wgt, author, dist)
             status("Installiere auf ${device.name} …")
             val res = SamsungTv.install(conn, signed, isWgt, ::log) { sent, total -> progress(sent, total) }
