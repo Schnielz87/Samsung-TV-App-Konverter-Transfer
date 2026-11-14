@@ -86,10 +86,15 @@ class AndroidPlatform(private val ctx: Context) : Platform {
         }
         return runCatching {
             val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
-            ctx.startActivity(
-                Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            // Direkt an den Android-Installer – ohne "Öffnen mit"-Auswahl (diese App nimmt selbst APKs an).
+            @Suppress("DEPRECATION")
+            val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+            val installer = ctx.packageManager.queryIntentActivities(intent, 0)
+                .firstOrNull { it.activityInfo.packageName != ctx.packageName }
+            installer?.let { intent.setClassName(it.activityInfo.packageName, it.activityInfo.name) }
+            ctx.startActivity(intent)
             null
         }.getOrElse { "Installer konnte nicht geöffnet werden: ${it.message}" }
     }
