@@ -1,7 +1,12 @@
 # TV-App-Transfer
 
-Bringt Apps mit wenigen Klicks auf **Samsung-Fernseher** und auf **Android-TV-Sticks**, die am Fernseher stecken.
-Es gibt das Programm als **Windows-Programm (EXE)** und als **Android-App (APK)**. Beide können dasselbe.
+Deployment- und Kompatibilitätswerkzeug für vom Nutzer rechtmäßig bereitgestellte Anwendungen auf unterstützten
+Samsung-TV-Geräten. Es ist kompatibel mit ausgewählten Samsung Smart TVs und Android-TV-Geräten (z. B. Fire TV).
+Das Programm gibt es für **Windows (EXE)** und **Android (APK)**, beide mit gleichem Funktionsumfang.
+
+Sie wählen die zu verarbeitende Datei selbst aus. Das Programm stellt keine Apps Dritter bereit, verarbeitet Ihre Dateien
+lokal und umgeht keine Schutzmaßnahmen (DRM, Lizenzprüfungen, Kopierschutz). Es wird nicht zugesichert, dass eine
+bestimmte App umgewandelt werden kann.
 
 > **Wichtig vorab:** Samsung-Fernseher laufen mit **Tizen**, nicht mit Android. Eine normale Android-App (APK)
 > kann dort grundsätzlich nicht laufen. Das liegt nicht an diesem Programm, sondern am System.
@@ -9,12 +14,13 @@ Es gibt das Programm als **Windows-Programm (EXE)** und als **Android-App (APK)*
 >
 > | Ihre Datei | Was passiert |
 > |---|---|
-> | Android-App, von der es eine eigene Samsung-Version gibt (z. B. **PowerIPTV**) | die Samsung-Version wird automatisch geladen, für Ihren Fernseher signiert und installiert |
+> | eigene App des Anbieters mit Samsung-Fassung (z. B. **PowerIPTV**) | die Samsung-Fassung wird geladen, für Ihren Fernseher signiert und installiert |
 > | APK aus Web-Technik (Cordova, PhoneGap, Capacitor, Ionic) | wird zur Samsung-App umgewandelt und installiert |
 > | APK, die nur eine Webseite anzeigt (WebView-Hülle) | die Webseite wird als Samsung-App verpackt und installiert |
 > | Webadresse (Web-Player, Mediathek …) | wird als eigene App auf dem Fernseher angelegt |
 > | Tizen-App (`.wgt` / `.tpk`) | wird für Ihren Fernseher signiert und installiert |
-> | normale Android-App (Java/Kotlin, Flutter, React Native, Unity …) | **nicht** für Samsung umwandelbar → wird direkt auf einen **Android-TV-Stick** (Fire TV, Google TV) übertragen |
+> | normale Android-App (Java/Kotlin, Flutter, React Native, Unity …) | **nicht** für Samsung umwandelbar → kann unverändert auf ein **Android-TV-Gerät** (Fire TV, Google TV) übertragen werden |
+> | App mit Lizenz- oder Kopierschutz | wird **nicht** umgewandelt (das würde den Schutz umgehen) → nur unverändert auf ein Android-TV-Gerät |
 
 ## Downloads
 
@@ -65,7 +71,7 @@ Diese Anleitung finden Sie auch in der App unter **Anleitung** (ganz oben).
 
 1. Was? Datei wählen (APK, .wgt), eine installierte App vom Handy wählen oder eine Webadresse eingeben. Die App zeigt sofort, ob sie für Samsung umwandelbar ist (grüner Punkt).
 2. Wohin? "Im WLAN suchen" drücken und den Fernseher antippen. Erscheint ein gelber Hinweis, diesen zuerst erledigen (meist: falsche IP am Fernseher).
-3. Modelljahr prüfen (wird meist automatisch erkannt) und den Signierweg "Samsung-Zertifikat" lassen.
+3. Modelljahr prüfen (wird meist automatisch erkannt).
 4. "Auf den Samsung-Fernseher übertragen" drücken. Beim ersten Mal öffnet sich die Samsung-Anmeldung – anmelden, zurück zur App, warten.
 5. Fertig, wenn "ist auf dem Fernseher installiert" erscheint. Die App finden Sie am Fernseher unter Apps (ganz unten / in der App-Leiste).
 
@@ -109,18 +115,16 @@ installieren, müssen Sie die IP dort jeweils umstellen.
    Beim Samsung-Fernseher wird das **Modelljahr** automatisch erkannt. Sie können es auch selbst wählen (2017 bis 2026).
 3. Klicken Sie auf **Übertragen**. Das Programm wandelt die Datei um, signiert sie, überträgt sie und installiert sie.
 
-### Signierwege (Samsung)
+### Samsung-Zertifikat
 
-Samsung-Fernseher installieren nur Apps, die mit einem **Samsung-Entwicklerzertifikat** signiert sind.
-In diesem Zertifikat ist die Geräte-ID des Fernsehers eingetragen.
+Samsung-Fernseher installieren im Entwicklermodus nur Apps, die mit einem **Samsung-Entwicklerzertifikat** signiert sind.
+In diesem Zertifikat ist die Geräte-ID des Fernsehers eingetragen. Bei der ersten Installation öffnet sich im Browser
+die offizielle Samsung-Anmeldung. Melden Sie sich dort mit Ihrem kostenlosen Samsung-Konto an. Ihr Passwort geben Sie
+nur bei Samsung ein, das Programm sieht es nie. Das Zertifikat wird danach auf Ihrem Gerät gespeichert, und jede weitere
+Installation läuft ohne Anmeldung. Kommt ein weiterer Fernseher dazu, erweitert das Programm das Zertifikat automatisch.
 
-- **Samsung-Zertifikat (Standard):** Bei der ersten Installation öffnet sich im Browser die offizielle
-  Samsung-Anmeldung. Melden Sie sich dort mit Ihrem kostenlosen Samsung-Konto an. Ihr Passwort geben Sie nur bei
-  Samsung ein, das Programm sieht es nie. Das Zertifikat wird danach auf Ihrem Gerät gespeichert, und jede weitere
-  Installation läuft ohne Anmeldung. Kommt ein weiterer Fernseher dazu, erweitert das Programm das Zertifikat automatisch.
-- **TizenBrew:** Installiert einmalig den offenen App-Starter [TizenBrew](https://github.com/reisxd/TizenBrew).
-  Danach können Sie Community-Apps (z. B. TizenTube) direkt am Fernseher hinzufügen, ohne erneut zu signieren.
-  Auch TizenBrew braucht für die erste Installation einmal das Samsung-Zertifikat.
+Andere Tizen-Apps (`.wgt`), etwa offene Projekte, laden Sie selbst von der Quelle Ihres Vertrauens herunter und wählen
+sie als Datei aus. Das Programm enthält keine eingebauten Downloads fremder Apps.
 
 ### Häufige Probleme
 
@@ -129,6 +133,7 @@ Mit dem Knopf **Kopieren** über dem Protokoll übernehmen Sie das ganze Protoko
 | Meldung | Lösung |
 |---|---|
 | „Die Adresse … wird in Ihrem Netz blockiert“ / „Unable to resolve host svdca.samsungqbe.com“ | Ein Werbefilter (Privates DNS am Handy, AdGuard, Pi-hole, Router-Filter) sperrt die Samsung-Zertifizierungsstelle. Die App weicht seit 1.0.9 automatisch auf verschlüsseltes DNS aus. Klappt es trotzdem nicht: Filter kurz ausschalten (Android: Einstellungen → Verbindungen → Weitere Verbindungseinstellungen → Privates DNS → Aus). Mobile Daten helfen nicht, weil der Fernseher im WLAN erreichbar sein muss. |
+| Samsung-Anmeldeseite bleibt weiß / lädt nicht weiter | Seite neu laden oder im Anmeldefenster der App auf „Anmeldeseite erneut öffnen“ tippen. Werbe- und Trackingfilter (Privates DNS, Werbeblocker in Samsung Internet) blockieren oft die Sicherheitsprüfung (reCAPTCHA) der Samsung-Seite, schalten Sie sie dann kurz aus. Alternativ mit „Link kopieren“ die Seite in Chrome öffnen. Lassen Sie TV-App-Transfer dabei geöffnet. |
 | „Der Fernseher lässt nur das Gerät mit der IP … herein“ | Am Fernseher ist die IP eines anderen Geräts eingetragen (z. B. die des PCs). Tragen Sie unter Apps → 1 2 3 4 5 die angezeigte IP dieses Geräts ein und starten Sie den Fernseher neu. Oder starten Sie die Übertragung von dem Gerät, dessen IP eingetragen ist. |
 | „Fernseher lässt keine Verbindung zu“ | Entwicklermodus an? Stimmt die Host-IP (siehe Programm)? Fernseher danach neu gestartet? |
 | „Zertifikat passt nicht“ | Bei Samsung erneut anmelden, das Programm erstellt das Zertifikat dann neu. Bei einem neuen Fernseher geschieht das automatisch. |
@@ -142,6 +147,17 @@ Für manche Apps gibt es eine eigene Samsung-Fassung. Bei **PowerIPTV** liegt si
 PowerIPTV-Release. Wählen Sie diese App (als APK oder unter „Installierte App vom Handy“), lädt das Programm
 automatisch die neueste Samsung-Fassung, signiert sie und installiert sie auf dem Fernseher. Weitere Apps lassen sich in
 `core/src/main/kotlin/de/tvtransfer/convert/TizenCounterparts.kt` ergänzen.
+
+## Rechtliches
+
+- **Rechte-Bestätigung:** Vor der ersten Verarbeitung bestätigen Sie, dass Sie berechtigt sind, die gewählte Software zu
+  verwenden, zu verarbeiten und zu installieren. Diese Bestätigung ist Teil der Nutzungsbedingungen.
+- **Nutzungsbedingungen, Datenschutz, Lizenzen und Anbieter** stehen in der App unter **Rechtliches**.
+- **Datenschutz:** Das Programm verarbeitet alles lokal. Es gibt keine Telemetrie, und es überträgt keine Namen oder
+  Dateien Ihrer Apps an den Anbieter. Zwischendateien werden nach jedem Vorgang gelöscht.
+- Samsung und Tizen sind Marken ihrer jeweiligen Rechteinhaber. Dieses Produkt ist ein unabhängiges Softwarewerkzeug und
+  steht in keiner Verbindung zu Samsung, sofern nicht ausdrücklich anders angegeben.
+- Verbindliche Produktregeln für die Entwicklung: [docs/RECHTLICHE_LEITPLANKEN.md](docs/RECHTLICHE_LEITPLANKEN.md)
 
 ## Technik (für Entwickler)
 

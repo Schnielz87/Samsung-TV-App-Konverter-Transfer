@@ -56,18 +56,6 @@ interface Platform {
     fun installUpdate(file: File): String?
 }
 
-enum class Signing(val label: String, val description: String) {
-    SAMSUNG(
-        "Samsung-Zertifikat",
-        "Einmalig mit Ihrem kostenlosen Samsung-Konto anmelden. Danach installiert das Programm jede umgewandelte App mit einem Klick.",
-    ),
-    TIZENBREW(
-        "TizenBrew",
-        "Installiert einmalig den offenen App-Starter TizenBrew (nutzt ebenfalls das Samsung-Zertifikat). " +
-            "Danach lassen sich Community-Apps (z. B. TizenTube) direkt am Fernseher hinzufügen – ohne erneutes Signieren.",
-    ),
-}
-
 data class UiState(
     val analysis: Analysis? = null,
     val appName: String = "",
@@ -88,7 +76,6 @@ data class UiState(
     val hasCertificate: Boolean = false,
     val waitingForLogin: Boolean = false,
     val waitingForStickConfirm: Boolean = false,
-    val signing: Signing = Signing.SAMSUNG,
     val ownAddresses: List<String> = emptyList(),
     val lastWgt: File? = null,
     val appVersion: String = "",
@@ -99,7 +86,10 @@ data class UiState(
     val autoUpdateCheck: Boolean = true,
     /** Dauerhafter Hinweis zum gewählten Gerät (z. B. falsche Entwickler-IP am Fernseher). */
     val deviceWarning: String? = null,
-    val tizenBrewInstalled: Boolean = false,
+    /** Nutzungsbedingungen inkl. Rechte-Bestätigung angenommen (aktuelle Fassung). */
+    val termsAccepted: Boolean = false,
+    /** Dialog zur Rechte-Bestätigung anzeigen (vor der ersten Verarbeitung). */
+    val askTerms: Boolean = false,
 )
 
 class TransferController(private val platform: Platform) {
@@ -117,10 +107,16 @@ class TransferController(private val platform: Platform) {
     private val updateProps: Properties by lazy { Properties().apply { if (updateFile.exists()) runCatching { updateFile.inputStream().use { load(it) } } } }
     private val currentBuild: Int get() = UpdateChecker.buildOf(platform.appVersion) ?: 0
 
+    private val legalFile = File(platform.dataDir, "rechtliches.properties")
+    private val legalProps: Properties by lazy { Properties().apply { if (legalFile.exists()) runCatching { legalFile.inputStream().use { load(it) } } } }
+    private var pendingAfterTerms: (() -> Unit)? = null
+
     init {
+        Analyzer.tempDir = File(platform.cacheDir, "entpackt")
+        cleanupTemp(emptyList())
         loadSettings()
         refreshCertInfo()
-        _state.update { it.copy(ownAddresses = Discovery.localAddresses(), appVersion = platform.appVersion, autoUpdateCheck = updateProps.getProperty("auto") != "false") }
+        _state.update { it.copy(ownAddresses = Discovery.localAddresses(), appVersion = platform.appVersion, autoUpdateCheck = updateProps.getProperty("auto") != "false", termsAccepted = legalProps.getProperty("accepted") == Legal.TERMS_VERSION) }
         startAutoUpdateCheck()
     }
 
@@ -202,9 +198,54 @@ class TransferController(private val platform: Platform) {
         }
     }
 
+    // ------------------------------------------------------------------ Nutzungsbedingungen / Rechte-Bestätigung
+
+    /** Führt [action] aus, sobald die Nutzungsbedingungen (inkl. Rechte-Bestätigung) angenommen sind. */
+    private fun requireTerms(action: () -> Unit) {
+        if (_state.value.termsAccepted) return action()
+        pendingAfterTerms = action
+        _state.update { it.copy(askTerms = true) }
+    }
+
+    fun acceptTerms() {
+        legalProps.setProperty("accepted", Legal.TERMS_VERSION)
+        legalProps.setProperty("acceptedAt", System.currentTimeMillis().toString())
+        runCatching { legalFile.parentFile.mkdirs(); legalFile.outputStream().use { legalProps.store(it, "Nutzungsbedingungen angenommen") } }
+        _state.update { it.copy(termsAccepted = true, askTerms = false) }
+        log("Nutzungsbedingungen (Fassung ${Legal.TERMS_VERSION}) angenommen.")
+        pendingAfterTerms?.invoke()
+        pendingAfterTerms = null
+    }
+
+    fun declineTerms() {
+        pendingAfterTerms = null
+        _state.update { it.copy(askTerms = false, status = "Ohne Bestätigung der Nutzungsbedingungen wird keine Datei verarbeitet.") }
+    }
+
+    // ------------------------------------------------------------------ Zwischendateien
+
+    /** Löscht Zwischendateien (Importe, entpackte Bündel, Downloads) – außer [keep] und heruntergeladenen Updates. */
+    private fun cleanupTemp(keep: List<File>) {
+        val keepPaths = keep.mapNotNull { runCatching { it.canonicalPath }.getOrNull() }.toSet()
+        fun walk(f: File): Boolean { // true = Ordner/Datei wird noch gebraucht
+            val path = runCatching { f.canonicalPath }.getOrDefault(f.path)
+            if (path in keepPaths) return true
+            if (f.isDirectory) {
+                var needed = false
+                f.listFiles()?.forEach { if (walk(it)) needed = true }
+                if (!needed) f.delete()
+                return needed
+            }
+            f.delete()
+            return false
+        }
+        platform.cacheDir.listFiles()?.forEach { if (it.name != "update") walk(it) }
+    }
+
     // ------------------------------------------------------------------ Quelle
 
     fun openFile(file: File, labelHint: String? = null, parts: List<File>? = null) = run("Analysiere ${file.name} …") {
+        cleanupTemp(listOf(file) + (parts ?: emptyList()))
         val a = Analyzer.analyze(file, labelHint, parts)
         setAnalysis(a)
     }
@@ -228,7 +269,6 @@ class TransferController(private val platform: Platform) {
     fun setAppName(name: String) = _state.update { it.copy(appName = name) }
     fun chooseUrl(url: String) = _state.update { it.copy(chosenUrl = url) }
     fun setModel(m: TvModel) = _state.update { it.copy(model = m, modelAutoDetected = false) }.also { saveSettings() }
-    fun setSigning(s: Signing) = _state.update { it.copy(signing = s) }
     fun clearMessages() = _state.update { it.copy(error = null, success = null) }
 
     // ------------------------------------------------------------------ Geräte
@@ -320,10 +360,11 @@ class TransferController(private val platform: Platform) {
     // ------------------------------------------------------------------ Übertragen
 
     /** Hauptfunktion: umwandeln (falls nötig) und auf das gewählte Gerät bringen. */
-    fun transfer() {
+    fun transfer() = requireTerms { doTransfer() }
+
+    private fun doTransfer() {
         val s = _state.value
         val device = s.selected ?: return fail("Bitte zuerst ein Zielgerät wählen (Suchen oder IP eingeben).")
-        if (s.signing == Signing.TIZENBREW && device.kind == DeviceKind.SAMSUNG_TV && s.analysis == null) return installTizenBrew()
         val a = s.analysis ?: return fail("Bitte zuerst eine Datei, eine App oder eine Webadresse wählen.")
         when (device.kind) {
             DeviceKind.SAMSUNG_TV -> {
@@ -339,7 +380,9 @@ class TransferController(private val platform: Platform) {
     }
 
     /** Erzeugt nur die .wgt-Datei (zum Weitergeben oder für USB). */
-    fun exportWgt(targetDir: File) = run("Erzeuge Samsung-App …") {
+    fun exportWgt(targetDir: File) = requireTerms { doExportWgt(targetDir) }
+
+    private fun doExportWgt(targetDir: File) = run("Erzeuge Samsung-App …") {
         val s = _state.value
         val a = s.analysis ?: return@run fail("Keine Quelle gewählt.")
         if (!a.canConvert) return@run fail(a.verdict)
@@ -353,7 +396,7 @@ class TransferController(private val platform: Platform) {
     /** Bei Apps mit eigener Samsung-Version: diese laden und wie eine Tizen-App weiterverarbeiten. */
     private fun resolveSamsungVersion(a: Analysis): Analysis {
         val c = a.counterpart ?: return a
-        val f = TizenCounterparts.download(c, platform.cacheDir, ::log)
+        val f = TizenCounterparts.download(c, File(platform.cacheDir, "download"), ::log)
         return Analyzer.analyze(f).copy(displayName = a.displayName)
     }
 
@@ -413,29 +456,6 @@ class TransferController(private val platform: Platform) {
         }
     }
 
-    // ------------------------------------------------------------------ TizenBrew
-
-    fun installTizenBrew() = run("Lade TizenBrew herunter …") {
-        val device = _state.value.selected?.takeIf { it.kind == DeviceKind.SAMSUNG_TV }
-            ?: return@run fail("Bitte zuerst einen Samsung-Fernseher wählen.")
-        connectTv(device.host).close()
-        val rel = Http.get("https://api.github.com/repos/reisxd/TizenBrew/releases/latest", 20_000, mapOf("Accept" to "application/vnd.github+json"))
-        if (!rel.ok) return@run fail("TizenBrew konnte nicht abgerufen werden (HTTP ${rel.code}).")
-        @Suppress("UNCHECKED_CAST")
-        val assets = (Json.parse(rel.text) as Map<String, Any?>)["assets"] as? List<Map<String, Any?>> ?: emptyList()
-        val wgt = assets.firstOrNull { it["name"].toString().endsWith(".wgt") }
-            ?: return@run fail("In der aktuellen TizenBrew-Version wurde keine .wgt-Datei gefunden.")
-        val dl = Http.get(wgt["browser_download_url"].toString(), 120_000)
-        if (!dl.ok) return@run fail("Download fehlgeschlagen (HTTP ${dl.code}).")
-        val f = File(platform.cacheDir, wgt["name"].toString()).apply { parentFile.mkdirs(); writeBytes(dl.body) }
-        log("TizenBrew ${rel.text.let { Regex("\"tag_name\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) } ?: ""} geladen.")
-        val a = Analyzer.analyze(f)
-        _state.update { it.copy(analysis = a, appName = "TizenBrew") }
-        transferToSamsung(device, a)
-        if (_state.value.success != null) _state.update { it.copy(tizenBrewInstalled = true) }
-        log("TizenBrew: Am Fernseher öffnen und dort über \"Module\" z. B. @foxreis/tizentube hinzufügen.")
-    }
-
     // ------------------------------------------------------------------ Samsung-Anmeldung
 
     private fun obtainLogin(): SamsungAccess? {
@@ -467,6 +487,14 @@ class TransferController(private val platform: Platform) {
     }
 
     fun cancelLogin() { login?.cancel() }
+
+    /** Öffnet die offizielle Samsung-Anmeldeseite erneut (z. B. wenn sie im Browser hängen bleibt). */
+    fun reopenLoginPage() {
+        log("Öffne Samsung-Anmeldung erneut.")
+        platform.openBrowser(SamsungCertificates.LOGIN_URL)
+    }
+
+    val loginUrl: String get() = SamsungCertificates.LOGIN_URL
 
     fun deleteCertificate() {
         certs.delete()
@@ -521,6 +549,8 @@ class TransferController(private val platform: Platform) {
             } catch (e: Exception) {
                 fail(e.message ?: e.toString())
             } finally {
+                // Zwischendateien nach Abschluss entfernen – nur die gewählte Quelldatei bleibt (für einen erneuten Versuch)
+                _state.value.analysis.let { a -> cleanupTemp(listOfNotNull(a?.source) + (a?.apkParts ?: emptyList())) }
                 _state.update { it.copy(busy = false, progress = null, waitingForLogin = false, waitingForStickConfirm = false) }
             }
         }

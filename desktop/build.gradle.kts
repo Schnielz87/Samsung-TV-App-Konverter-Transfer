@@ -42,7 +42,7 @@ compose.desktop {
             targetFormats(TargetFormat.Exe, TargetFormat.Msi)
             packageName = "TV-App-Transfer"
             packageVersion = appVersion
-            description = "Apps auf Samsung-Fernseher und Android-TV-Sticks übertragen"
+            description = "Deployment- und Kompatibilitätswerkzeug für eigene Anwendungen auf unterstützten TV-Geräten"
             vendor = "TV-App-Transfer"
             // ermittelt mit ./gradlew :desktop:suggestRuntimeModules
             modules("java.instrument", "jdk.unsupported", "jdk.crypto.ec", "java.naming")

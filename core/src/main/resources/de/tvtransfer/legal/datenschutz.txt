@@ -1,0 +1,14 @@
+Das Programm verarbeitet Ihre Dateien ausschließlich lokal auf diesem Gerät. Quelldateien und Namen der verarbeiteten Apps werden nicht an den Anbieter übertragen. Es gibt keine Nutzungsstatistik (Telemetrie), keine Werbung und kein Konto beim Anbieter.
+
+Verbindungen, die das Programm herstellt – nur wenn Sie die jeweilige Funktion nutzen:
+
+• Ihre Geräte im Heimnetz (Fernseher, Android-Stick): Gerätesuche und Übertragung der von Ihnen gewählten App.
+• Samsung (account.samsung.com und die Samsung-Zertifizierungsstelle svdca.samsungqbe.com): Ihre Anmeldung erfolgt auf der Samsung-Seite; das Programm erhält ein kurzlebiges Zugangs-Token, Ihre Samsung-Kennung und E-Mail-Adresse und sendet eine Zertifikatsanfrage mit der Geräte-ID (DUID) Ihres Fernsehers. Ihr Passwort sieht das Programm nie. Es gelten die Datenschutzbestimmungen von Samsung.
+• Cloudflare (1.1.1.1) bzw. Google (8.8.8.8): nur falls Ihr Netz die Samsung-Adresse sperrt, wird deren Name (nicht Ihre Daten) über verschlüsseltes DNS abgefragt.
+• GitHub (api.github.com, github.com): Prüfung auf neue Programmversionen und – nur bei eigener Software des Anbieters (z. B. PowerIPTV) – Laden deren Samsung-Fassung. Dabei werden keine Angaben über Ihre Apps übertragen.
+
+Auf diesem Gerät gespeichert werden: Ihr Samsung-Entwicklerzertifikat (mit privatem Schlüssel), die Geräte-IDs Ihrer Fernseher, gefundene Geräte und Einstellungen. Zwischendateien werden nach Abschluss eines Vorgangs gelöscht. Das Protokoll bleibt nur im Programm und wird nur weitergegeben, wenn Sie es selbst kopieren.
+
+Löschen: Zertifikat und Einstellungen werden mit dem Deinstallieren des Programms entfernt.
+
+Verantwortlich: {ANBIETERBLOCK}

@@ -70,7 +70,7 @@ fun main() = application {
     val state = rememberWindowState(size = DpSize(1180.dp, 820.dp))
     var dropHighlight by remember { mutableStateOf(false) }
 
-    Window(onCloseRequest = ::exitApplication, title = "TV-App-Transfer – Apps auf Samsung-TV & Android-Stick", state = state) {
+    Window(onCloseRequest = ::exitApplication, title = "TV-App-Transfer – Deployment- und Kompatibilitätswerkzeug", state = state) {
         val frame = window
         DisposableEffect(Unit) {
             frame.contentPane.dropTarget = DropTarget(frame.contentPane, DnDConstants.ACTION_COPY, object : DropTargetAdapter() {

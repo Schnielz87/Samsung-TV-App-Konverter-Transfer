@@ -56,7 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import de.tvtransfer.app.Signing
+import de.tvtransfer.app.Legal
 import de.tvtransfer.app.TransferController
 import de.tvtransfer.app.UiState
 import de.tvtransfer.convert.SourceType
@@ -112,6 +112,7 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
                 TargetCard(s, controller)
                 ActionCard(s, controller, host)
                 UpdateCard(s, controller)
+                LegalCard()
             }
             Column(Modifier.weight(1f)) { LogCard(s, Modifier.fillMaxSize()) }
         }
@@ -128,16 +129,19 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
             ActionCard(s, controller, host)
             LogCard(s, Modifier.fillMaxWidth().height(260.dp))
             UpdateCard(s, controller)
+            LegalCard()
         }
     }
     LoginDialog(s, controller)
+    TermsDialog(s, controller)
 }
 
 @Composable
 private fun Header() {
     Column {
         Text("TV-App-Transfer", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Brand.text)
-        Text("Apps auf Samsung-Fernseher bringen – umwandeln, signieren, installieren. Oder APKs direkt auf einen Android-TV-Stick.", color = Brand.muted, fontSize = 14.sp)
+        Text(Legal.POSITIONING, color = Brand.muted, fontSize = 14.sp)
+        Text("Kompatibel mit ausgewählten Samsung Smart TVs und Android-TV-Geräten.", color = Brand.muted, fontSize = 12.sp)
     }
 }
 
@@ -279,16 +283,6 @@ private fun TargetCard(s: UiState, c: TransferController) {
         if (s.selected?.kind == DeviceKind.SAMSUNG_TV) {
             HorizontalDivider(color = Brand.border)
             ModelPicker(s, c)
-            Text("Signierweg", color = Brand.text, fontWeight = FontWeight.Medium)
-            Signing.entries.forEach { sg ->
-                Row(verticalAlignment = Alignment.Top, modifier = Modifier.clickable { c.setSigning(sg) }) {
-                    RadioButton(selected = s.signing == sg, onClick = { c.setSigning(sg) })
-                    Column(Modifier.padding(top = 10.dp)) {
-                        Text(sg.label, color = Brand.text)
-                        Text(sg.description, color = Brand.muted, fontSize = 12.sp)
-                    }
-                }
-            }
             Text(s.certInfo, color = if (s.hasCertificate) Brand.ok else Brand.muted, fontSize = 12.sp)
             DevModeHelp(s)
         } else if (s.selected?.kind == DeviceKind.ANDROID_STICK) {
@@ -347,7 +341,6 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
         val label = when {
             target == null -> "Übertragen"
             target.kind == DeviceKind.ANDROID_STICK -> "Auf den Android-Stick übertragen"
-            s.signing == Signing.TIZENBREW && s.analysis == null -> "TizenBrew auf den Fernseher installieren"
             else -> "Auf den Samsung-Fernseher übertragen"
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -355,8 +348,6 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
                 onClick = c::transfer, enabled = !s.busy && target != null,
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.ok, contentColor = Brand.bg),
             ) { Text(label, fontWeight = FontWeight.Bold) }
-            if (target?.kind == DeviceKind.SAMSUNG_TV && s.signing == Signing.TIZENBREW && s.analysis != null && !s.busy && !s.tizenBrewInstalled)
-                OutlinedButton(onClick = c::installTizenBrew, enabled = !s.busy) { Text("TizenBrew installieren") }
             if (s.analysis?.canConvert == true && s.analysis?.type != SourceType.TIZEN_PACKAGE)
                 OutlinedButton(onClick = host::exportWgt, enabled = !s.busy) { Text("Nur als .wgt speichern") }
         }
@@ -373,6 +364,49 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
         if (s.waitingForStickConfirm) Message("Bitte jetzt am Fernseher \"USB-Debugging zulassen\" bestätigen.", Brand.warn)
         s.error?.let { Message(it, Brand.bad) }
         s.success?.let { Message(it, Brand.ok) }
+    }
+}
+
+/** Rechte-Bestätigung vor der ersten Verarbeitung (Bestandteil der Nutzungsbedingungen). */
+@Composable
+private fun TermsDialog(s: UiState, c: TransferController) {
+    if (!s.askTerms) return
+    var checked by remember { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = c::declineTerms,
+        title = { Text("Bevor es losgeht") },
+        text = {
+            Column(Modifier.widthIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(Legal.POSITIONING, fontSize = 13.sp, color = Brand.muted)
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.clickable { checked = !checked }) {
+                    androidx.compose.material3.Checkbox(checked = checked, onCheckedChange = { checked = it })
+                    Text(Legal.RIGHTS_CONFIRMATION, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
+                }
+                TextButton(onClick = { showTerms = !showTerms }) { Text(if (showTerms) "Nutzungsbedingungen ausblenden" else "Nutzungsbedingungen lesen") }
+                if (showTerms) Text(Legal.text("nutzungsbedingungen"), fontSize = 12.sp, color = Brand.text)
+                Text("Mit „Zustimmen“ akzeptieren Sie die Nutzungsbedingungen. Diese Abfrage erscheint nur einmal.", fontSize = 12.sp, color = Brand.muted)
+            }
+        },
+        confirmButton = { Button(onClick = c::acceptTerms, enabled = checked) { Text("Zustimmen") } },
+        dismissButton = { TextButton(onClick = c::declineTerms) { Text("Abbrechen") } },
+    )
+}
+
+/** Rechtliches: Nutzungsbedingungen, Datenschutz, Marken/Lizenzen, Anbieter. */
+@Composable
+private fun LegalCard() {
+    var open by remember { mutableStateOf<String?>(null) }
+    Card(colors = CardDefaults.cardColors(containerColor = Brand.card), border = BorderStroke(1.dp, Brand.border), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Rechtliches", color = Brand.text, fontWeight = FontWeight.SemiBold)
+            Legal.SECTIONS.forEach { (key, title) ->
+                TextButton(onClick = { open = if (open == key) null else key }) { Text((if (open == key) "▴ " else "▾ ") + title) }
+                if (open == key) SelectionContainer { Text(Legal.text(key), color = Brand.text, fontSize = 12.sp) }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(Legal.TRADEMARK_NOTICE, color = Brand.muted, fontSize = 11.sp)
+        }
     }
 }
 
@@ -479,6 +513,7 @@ private fun LogCard(s: UiState, modifier: Modifier) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LoginDialog(s: UiState, c: TransferController) {
     if (!s.waitingForLogin) return
@@ -487,10 +522,27 @@ private fun LoginDialog(s: UiState, c: TransferController) {
         onDismissRequest = {},
         title = { Text("Samsung-Anmeldung") },
         text = {
-            Column(Modifier.widthIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.widthIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Im Browser hat sich die offizielle Samsung-Anmeldung geöffnet. Melden Sie sich dort mit Ihrem (kostenlosen) Samsung-Konto an. " +
                     "Danach geht es hier automatisch weiter.")
                 Text("Ihr Passwort geben Sie nur bei Samsung ein – dieses Programm sieht es nie.", color = Brand.muted, fontSize = 12.sp)
+                Text("Bleibt die Samsung-Seite weiß bzw. lädt nicht weiter?", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(
+                    "• Seite im Browser einmal neu laden oder unten „Anmeldeseite erneut öffnen“ tippen.\n" +
+                        "• Werbe-/Trackingfilter verhindern oft die Sicherheitsprüfung (reCAPTCHA) der Samsung-Seite: Privates DNS bzw. " +
+                        "Werbeblocker kurz ausschalten (Samsung Internet: Menü → Werbeblocker).\n" +
+                        "• Anderen Browser verwenden: „Link kopieren“ und z. B. in Chrome einfügen.\n" +
+                        "• Diese App dabei nicht schließen – sie wartet im Hintergrund auf die Anmeldung.",
+                    fontSize = 12.sp, color = Brand.text,
+                )
+                val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+                var copied by remember { mutableStateOf(false) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = c::reopenLoginPage) { Text("Anmeldeseite erneut öffnen") }
+                    OutlinedButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(c.loginUrl)); copied = true }) {
+                        Text(if (copied) "Link kopiert ✓" else "Link kopieren")
+                    }
+                }
                 Text("Falls die Samsung-Seite stattdessen einen Text wie {\"access_token\": …} anzeigt, diesen hier einfügen:", fontSize = 13.sp)
                 OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth().height(100.dp))
             }

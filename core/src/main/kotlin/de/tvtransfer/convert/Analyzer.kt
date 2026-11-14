@@ -16,6 +16,8 @@ enum class SourceType(val convertible: Boolean) {
     WEBSITE(true),
     /** Echte Android-App → läuft nicht auf Samsung (Tizen), aber auf einem Android-Stick am Fernseher. */
     NATIVE_ANDROID(false),
+    /** Enthält einen Lizenz-/Kopierschutz, der beim Umwandeln wegfallen würde → wird nicht umgewandelt. */
+    PROTECTED(false),
     UNKNOWN(false),
 }
 
@@ -50,6 +52,9 @@ data class Analysis(
 }
 
 object Analyzer {
+
+    /** Ordner für entpackte App-Bündel (.apks/.xapk); wird von der Ablaufsteuerung aufgeräumt. */
+    @Volatile var tempDir: File = File(System.getProperty("java.io.tmpdir"), "tvtransfer")
 
     fun analyze(file: File, labelHint: String? = null, parts: List<File>? = null): Analysis {
         val lower = file.name.lowercase()
@@ -108,7 +113,7 @@ object Analyzer {
         if ("AndroidManifest.xml" !in names) {
             val inner = names.filter { it.endsWith(".apk") }
             if (inner.isNotEmpty()) {
-                val dir = File(System.getProperty("java.io.tmpdir"), "tvtransfer-" + file.nameWithoutExtension.hashCode()).apply { mkdirs() }
+                val dir = File(tempDir, file.nameWithoutExtension.hashCode().toString()).apply { mkdirs() }
                 val extracted = inner.map { n -> File(dir, n.substringAfterLast('/')).also { it.writeBytes(Zip.entry(file, n)!!) } }
                 val base = extracted.firstOrNull { it.name == "base.apk" } ?: extracted.maxBy { it.length() }
                 return analyzeApk(base, labelHint, listOf(base) + (extracted - base))
@@ -159,6 +164,18 @@ object Analyzer {
         if (libs.any { it == "libmonodroid.so" } || names.any { it.startsWith("assemblies/") })
             return native(".NET/Xamarin", "Die App ist mit .NET/Xamarin gebaut.")
 
+        // 1b) Schutzmaßnahmen (Lizenzprüfung, Kopierschutz): Eine Umwandlung würde sie aushebeln → nicht umwandeln.
+        //     Die unveränderte APK darf weiterhin auf einen Android-Stick (dort bleibt der Schutz vollständig wirksam).
+        protectionMarker(file, names)?.let { what ->
+            return Analysis(
+                file, SourceType.PROTECTED, displayName, pkg, version, "Geschützte App",
+                "Diese App enthält eine technische Schutzmaßnahme ($what). Eine Umwandlung für Samsung-Fernseher würde diese " +
+                    "Schutzmaßnahme umgehen und wird daher nicht durchgeführt. Die unveränderte App kann auf ein kompatibles " +
+                    "Android-TV-Gerät übertragen werden.",
+                icon = icon, stickCompatible = true, hasTvLauncher = leanback, apkParts = allParts,
+            )
+        }
+
         // 2) Web-Apps im Paket
         val webRoots = listOf(
             "assets/www/" to "Cordova/PhoneGap",
@@ -206,6 +223,27 @@ object Analyzer {
             if (libs.isNotEmpty()) "Android (mit nativem Code)" else "Android (Java/Kotlin)",
             "Die App ist eine echte Android-App (Programmcode für Android).",
         )
+    }
+
+    /** Bekannte Lizenz-/Kopierschutz-Bausteine in Android-Apps (Klassennamen im Programmcode). */
+    private val PROTECTION_MARKERS = listOf(
+        "Lcom/google/android/vending/licensing/" to "Google-Play-Lizenzprüfung",
+        "Lcom/android/vending/licensing/" to "Google-Play-Lizenzprüfung",
+        "Lcom/pairip/" to "Google-Play-Integritätsschutz",
+        "Lcom/google/android/play/core/integrity/" to "Play-Integrity-Prüfung",
+        "Lcom/dexprotector/" to "Kopierschutz (DexProtector)",
+        "Lcom/secneo/" to "Kopierschutz",
+        "Lcom/stub/StubApp;" to "Kopierschutz (Packer)",
+    )
+
+    private fun protectionMarker(file: File, names: List<String>): String? {
+        if (names.any { it.startsWith("lib/") && it.contains("libpairipcore") }) return "Google-Play-Integritätsschutz"
+        val dexes = names.filter { Regex("^classes\\d*\\.dex$").matches(it) }
+        for (n in dexes) {
+            val data = Zip.entry(file, n) ?: continue
+            PROTECTION_MARKERS.firstOrNull { containsAscii(data, it.first) }?.let { return it.second }
+        }
+        return null
     }
 
     fun prettyName(pkg: String?): String? {

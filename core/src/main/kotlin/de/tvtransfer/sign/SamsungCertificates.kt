@@ -28,8 +28,12 @@ object SamsungCertificates {
 
     private const val CA_BASE = "https://svdca.samsungqbe.com/apis/v3"
 
-    /** Berechtigungsstufe. "Partner" erlaubt auch erweiterte TV-Schnittstellen (so nutzt es auch TizenBrew). */
-    const val PRIVILEGE = "Partner"
+    /**
+     * Berechtigungsstufe des Verteilerzertifikats. "Public" ist die Stufe für einzelne Entwickler und reicht für alle
+     * Rechte, die umgewandelte Apps nutzen (Internet, Fernbedienung, Netzwerk). Höhere Stufen nur nach rechtlicher Prüfung
+     * (LEGAL_REVIEW_REQUIRED, siehe docs/RECHTLICHE_LEITPLANKEN.md).
+     */
+    const val PRIVILEGE = "Public"
 
     fun caCert(name: String): X509Certificate {
         val stream = SamsungCertificates::class.java.getResourceAsStream("/de/tvtransfer/ca/$name")

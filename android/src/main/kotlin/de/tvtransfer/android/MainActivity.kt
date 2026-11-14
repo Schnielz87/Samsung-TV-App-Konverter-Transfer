@@ -169,7 +169,7 @@ class MainActivity : ComponentActivity() {
                     if (c.moveToFirst()) c.getString(0)?.let { name = it }
                 }
                 if (uri.scheme == "file") uri.lastPathSegment?.let { name = it }
-                val target = File(File(cacheDir, "import").apply { mkdirs() }, name.replace('/', '_'))
+                val target = File(File(cacheDir, "dateien/import").apply { mkdirs() }, name.replace('/', '_'))
                 contentResolver.openInputStream(uri)!!.use { input -> target.outputStream().use { input.copyTo(it) } }
                 controller.openFile(target)
             }.onFailure { controller.log("Datei konnte nicht gelesen werden: ${it.message}") }

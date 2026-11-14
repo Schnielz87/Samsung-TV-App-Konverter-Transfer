@@ -14,7 +14,7 @@ Werbe- oder Tracking-Filter (Privates DNS, AdGuard, Pi-hole) können die Samsung
 # Jedes Mal: App auf den Fernseher bringen
 1. Was? Datei wählen (APK, .wgt), eine installierte App vom Handy wählen oder eine Webadresse eingeben. Die App zeigt sofort, ob sie für Samsung umwandelbar ist (grüner Punkt).
 2. Wohin? "Im WLAN suchen" drücken und den Fernseher antippen. Erscheint ein gelber Hinweis, diesen zuerst erledigen (meist: falsche IP am Fernseher).
-3. Modelljahr prüfen (wird meist automatisch erkannt) und den Signierweg "Samsung-Zertifikat" lassen.
+3. Modelljahr prüfen (wird meist automatisch erkannt). Beim ersten Mal bestätigen Sie einmalig, dass Sie die Rechte an der gewählten Software haben.
 4. "Auf den Samsung-Fernseher übertragen" drücken. Beim ersten Mal öffnet sich die Samsung-Anmeldung – anmelden, zurück zur App, warten.
 5. Fertig, wenn "ist auf dem Fernseher installiert" erscheint. Die App finden Sie am Fernseher unter Apps (ganz unten / in der App-Leiste).
 

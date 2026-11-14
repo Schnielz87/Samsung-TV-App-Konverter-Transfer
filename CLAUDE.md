@@ -10,3 +10,8 @@
 - Versionen & Updates: `1.0.<Laufnummer>` aus `.github/workflows/build.yml` (nie umbenennen), Tag `tv-app-transfer-v…`,
   Releases NUR in diesem Repo (nicht in Portiva-Downloads – Wunsch des Inhabers). Feste Dateinamen in
   `update/UpdateChecker.kt` nicht ändern. APK-Schlüssel `android/signing/sideload.jks` nie austauschen (sonst keine Updates).
+- **Rechtliche Leitplanken (verbindlich):** `docs/RECHTLICHE_LEITPLANKEN.md`. Neutrales Werkzeug: keine Downloads/Kataloge
+  fremder Apps (Ausnahme: eigene Apps in `TizenCounterparts.kt`), alles lokal, Zwischendateien löschen, keine Umgehung von
+  DRM/Lizenz/Kopierschutz (`Analyzer.protectionMarker` → `PROTECTED`), Rechte-Bestätigung (`Legal`), Markenhinweis, keine
+  Werbeversprechen. Neue Funktion mit möglicher Umgehung → nicht bauen, als **LEGAL_REVIEW_REQUIRED** markieren.
+  Anbieterangaben zentral in `app/Legal.kt` (`AppInfo`, noch leer).

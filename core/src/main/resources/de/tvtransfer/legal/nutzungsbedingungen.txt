@@ -1,0 +1,17 @@
+TV-App-Transfer ist ein {POSITIONIERUNG}
+
+1. Gegenstand. Das Programm bereitet eine vom Nutzer selbst ausgewählte Quelldatei (z. B. eine Web-App, eine Tizen-App oder eine Webadresse) – soweit technisch und rechtlich zulässig – für die Installation auf einem kompatiblen Samsung-Fernseher vor und überträgt sie auf ein vom Nutzer kontrolliertes Gerät. Ein Android-TV-Gerät (z. B. Fire TV) wird mit der unveränderten Datei bespielt.
+
+2. Keine Bereitstellung fremder Software. {ANBIETER} stellt keine Apps oder sonstige Software Dritter bereit und bestimmt nicht, welche Datei verarbeitet wird. Ausnahme: eigene Software des Anbieters, die ausdrücklich als solche gekennzeichnet ist.
+
+3. Rechte-Bestätigung. Vor der ersten Verarbeitung bestätigt der Nutzer: „{BESTAETIGUNG}“
+
+4. Keine Umgehung von Schutzmaßnahmen. Das Programm entfernt oder umgeht weder DRM noch Lizenzprüfungen, Kopierschutz, Zugangskontrollen oder Sicherheitsmechanismen. Erkennt es eine solche Schutzmaßnahme, deren Umgehung für die Verarbeitung nötig wäre, bricht es ab.
+
+5. Offizielle Verfahren. Installationen auf Samsung-Fernsehern erfolgen ausschließlich über den von Samsung vorgesehenen Entwicklermodus und mit einem Entwicklerzertifikat aus dem eigenen Samsung-Konto des Nutzers. Es werden keine Sicherheitslücken genutzt.
+
+6. Keine Garantie. Es wird nicht zugesichert, dass eine bestimmte Datei umgewandelt werden kann oder auf einem bestimmten Gerät läuft. Normale Android-Apps sind grundsätzlich nicht auf Samsung-Fernseher (Tizen) übertragbar.
+
+7. Verantwortung des Nutzers. Der Nutzer ist für die Rechtmäßigkeit der verarbeiteten Dateien und die Nutzung des Entwicklermodus an seinen Geräten selbst verantwortlich.
+
+8. {MARKE}
