@@ -97,6 +97,9 @@ data class UiState(
     val updateProgress: Float? = null,
     val checkingUpdate: Boolean = false,
     val autoUpdateCheck: Boolean = true,
+    /** Dauerhafter Hinweis zum gewählten Gerät (z. B. falsche Entwickler-IP am Fernseher). */
+    val deviceWarning: String? = null,
+    val tizenBrewInstalled: Boolean = false,
 )
 
 class TransferController(private val platform: Platform) {
@@ -267,16 +270,51 @@ class TransferController(private val platform: Platform) {
                 modelAutoDetected = detected != null,
             )
         }
-        if (d.kind == DeviceKind.SAMSUNG_TV) {
-            val info = d.tvInfo
-            val own = Discovery.localAddresses()
-            when {
-                info != null && !info.developerMode -> warn("Am Fernseher ist der Entwicklermodus noch nicht aktiv. Anleitung: Apps öffnen → 1 2 3 4 5 eingeben → Entwicklermodus EIN → IP-Adresse dieses Geräts (${own.firstOrNull() ?: "siehe Einstellungen"}) eintragen → Fernseher neu starten.")
-                info?.developerIp != null && info.developerIp !in own && own.isNotEmpty() ->
-                    warn("Am Fernseher ist als Entwickler-IP ${info.developerIp} eingetragen, dieses Gerät hat aber ${own.joinToString()}. Bitte am Fernseher (Apps → 12345) die IP-Adresse ändern und den Fernseher neu starten.")
-            }
+        _state.update { it.copy(deviceWarning = null) }
+        if (d.kind == DeviceKind.SAMSUNG_TV) scope.launch {
+            val problem = tvProblem(d.host)
+            _state.update { it.copy(deviceWarning = problem) }
+            if (problem != null) log("Hinweis: $problem")
         }
         saveSettings()
+    }
+
+    /** Fernseher-IP so, wie der Fernseher sie meldet – manche Modelle geben sie rückwärts aus (1.0.0.127). */
+    private fun sameIp(a: String, b: String) = a == b || a.split('.').reversed().joinToString(".") == b
+
+    /**
+     * Prüft vor dem Verbinden, ob der Fernseher dieses Gerät überhaupt hereinlässt.
+     * Samsung erlaubt Installationen nur vom Gerät, dessen IP im Entwicklermodus eingetragen ist.
+     */
+    private fun tvProblem(host: String): String? {
+        val info = SamsungTv.fetchInfo(host) ?: return null
+        val own = Discovery.localAddresses()
+        val ownText = own.firstOrNull() ?: "(IP dieses Geräts)"
+        return when {
+            !info.developerMode ->
+                "Am Fernseher ist der Entwicklermodus aus. So schalten Sie ihn ein: Apps öffnen → auf der Fernbedienung 1 2 3 4 5 drücken → " +
+                    "Entwicklermodus EIN → als Host-IP $ownText eintragen → OK → Fernseher neu starten (Ein/Aus-Taste 3 Sekunden halten)."
+            info.developerIp != null && own.isNotEmpty() && own.none { sameIp(info.developerIp, it) } ->
+                "Der Fernseher lässt nur das Gerät mit der IP ${info.developerIp} herein (im Entwicklermodus eingetragen). " +
+                    "Dieses Gerät hat $ownText. Entweder am Fernseher die IP ändern: Apps → 1 2 3 4 5 → bei \"Host PC IP\" $ownText eintragen → OK → " +
+                    "Fernseher neu starten (Ein/Aus-Taste 3 Sekunden halten). Oder die Übertragung von dem Gerät mit der IP ${info.developerIp} " +
+                    "(z. B. Ihrem PC) aus starten."
+            else -> null
+        }
+    }
+
+    /** Verbindet mit dem Fernseher und erklärt verständlich, warum es nicht klappt. */
+    private fun connectTv(host: String): de.tvtransfer.bridge.BridgeConnection {
+        tvProblem(host)?.let { p -> _state.update { it.copy(deviceWarning = p) }; throw IllegalStateException(p) }
+        return try {
+            SamsungTv.connect(host)
+        } catch (e: java.io.IOException) {
+            throw IllegalStateException(
+                "Der Fernseher hat die Verbindung abgelehnt. Meist ist im Entwicklermodus eine andere IP eingetragen als die dieses Geräts " +
+                    "(${Discovery.localAddresses().joinToString()}). Bitte prüfen: Apps → 1 2 3 4 5 → Host-IP → Fernseher neu starten.",
+                e,
+            )
+        }
     }
 
     // ------------------------------------------------------------------ Übertragen
@@ -320,6 +358,8 @@ class TransferController(private val platform: Platform) {
     }
 
     private fun transferToSamsung(device: FoundDevice, original: Analysis) {
+        // zuerst prüfen, ob der Fernseher uns hereinlässt – erst dann herunterladen/umwandeln
+        connectTv(device.host).close()
         val a = resolveSamsungVersion(original)
         val s = _state.value
         status("Erzeuge Samsung-App …")
@@ -329,7 +369,7 @@ class TransferController(private val platform: Platform) {
         if (s.model.note.isNotBlank() && s.model.chromium < 60 && a.type != SourceType.TIZEN_PACKAGE) log("Hinweis: ${s.model.note}")
 
         status("Verbinde mit dem Fernseher …")
-        var conn = SamsungTv.connect(device.host)
+        var conn = connectTv(device.host)
         try {
             val duid = SamsungTv.duid(conn)
             log("Geräte-ID des Fernsehers: $duid")
@@ -339,7 +379,7 @@ class TransferController(private val platform: Platform) {
                 status("Erstelle Zertifikat …")
                 certs.create(access, duid, "TV-App-Transfer", ::log)
                 refreshCertInfo()
-                conn = SamsungTv.connect(device.host)
+                conn = connectTv(device.host)
             }
             status("Signiere …")
             val signed = WidgetSigner.sign(built.wgt, certs.author(), certs.distributor())
@@ -378,6 +418,7 @@ class TransferController(private val platform: Platform) {
     fun installTizenBrew() = run("Lade TizenBrew herunter …") {
         val device = _state.value.selected?.takeIf { it.kind == DeviceKind.SAMSUNG_TV }
             ?: return@run fail("Bitte zuerst einen Samsung-Fernseher wählen.")
+        connectTv(device.host).close()
         val rel = Http.get("https://api.github.com/repos/reisxd/TizenBrew/releases/latest", 20_000, mapOf("Accept" to "application/vnd.github+json"))
         if (!rel.ok) return@run fail("TizenBrew konnte nicht abgerufen werden (HTTP ${rel.code}).")
         @Suppress("UNCHECKED_CAST")
@@ -391,6 +432,7 @@ class TransferController(private val platform: Platform) {
         val a = Analyzer.analyze(f)
         _state.update { it.copy(analysis = a, appName = "TizenBrew") }
         transferToSamsung(device, a)
+        if (_state.value.success != null) _state.update { it.copy(tizenBrewInstalled = true) }
         log("TizenBrew: Am Fernseher öffnen und dort über \"Module\" z. B. @foxreis/tizentube hinzufügen.")
     }
 

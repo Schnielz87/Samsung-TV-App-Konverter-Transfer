@@ -273,6 +273,7 @@ private fun TargetCard(s: UiState, c: TransferController) {
             }
         }
 
+        s.deviceWarning?.takeIf { s.selected?.kind == DeviceKind.SAMSUNG_TV }?.let { Message(it, Brand.warn) }
         if (s.selected?.kind == DeviceKind.SAMSUNG_TV) {
             HorizontalDivider(color = Brand.border)
             ModelPicker(s, c)
@@ -352,7 +353,7 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
                 onClick = c::transfer, enabled = !s.busy && target != null,
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.ok, contentColor = Brand.bg),
             ) { Text(label, fontWeight = FontWeight.Bold) }
-            if (target?.kind == DeviceKind.SAMSUNG_TV && s.signing == Signing.TIZENBREW && s.analysis != null)
+            if (target?.kind == DeviceKind.SAMSUNG_TV && s.signing == Signing.TIZENBREW && s.analysis != null && !s.busy && !s.tizenBrewInstalled)
                 OutlinedButton(onClick = c::installTizenBrew, enabled = !s.busy) { Text("TizenBrew installieren") }
             if (s.analysis?.canConvert == true && s.analysis?.type != SourceType.TIZEN_PACKAGE)
                 OutlinedButton(onClick = host::exportWgt, enabled = !s.busy) { Text("Nur als .wgt speichern") }

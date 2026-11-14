@@ -87,6 +87,7 @@ In diesem Zertifikat ist die Geräte-ID des Fernsehers eingetragen.
 
 | Meldung | Lösung |
 |---|---|
+| „Der Fernseher lässt nur das Gerät mit der IP … herein“ | Am Fernseher ist die IP eines anderen Geräts eingetragen (z. B. die des PCs). Tragen Sie unter Apps → 1 2 3 4 5 die angezeigte IP dieses Geräts ein und starten Sie den Fernseher neu. Oder starten Sie die Übertragung von dem Gerät, dessen IP eingetragen ist. |
 | „Fernseher lässt keine Verbindung zu“ | Entwicklermodus an? Stimmt die Host-IP (siehe Programm)? Fernseher danach neu gestartet? |
 | „Zertifikat passt nicht“ | Bei Samsung erneut anmelden, das Programm erstellt das Zertifikat dann neu. Bei einem neuen Fernseher geschieht das automatisch. |
 | Web-App zeigt nur Schwarz | Ältere Fernseher (2017–2019) haben einen alten Browser. Moderne Web-Apps laufen dort teilweise nicht. |
