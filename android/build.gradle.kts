@@ -21,29 +21,21 @@ android {
         versionName = appVersion
     }
 
+    val keystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
-        create("release") {
-            val ks = System.getenv("ANDROID_KEYSTORE_FILE")
-            if (ks != null && file(ks).exists()) {
-                storeFile = file(ks)
-                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-            } else {
-                // Ohne hinterlegten Schlüssel: Debug-Schlüssel (für Tests ausreichend)
-                val dbg = signingConfigs.getByName("debug")
-                storeFile = dbg.storeFile
-                storePassword = dbg.storePassword
-                keyAlias = dbg.keyAlias
-                keyPassword = dbg.keyPassword
-            }
+        if (keystore != null) create("release") {
+            storeFile = keystore
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            // Ohne hinterlegten Schlüssel: Debug-Schlüssel (wird automatisch erzeugt)
+            signingConfig = signingConfigs.getByName(if (keystore != null) "release" else "debug")
         }
     }
 
