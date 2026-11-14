@@ -7,7 +7,7 @@ Verbindungen, die das Programm herstellt – nur wenn Sie die jeweilige Funktion
 • Cloudflare (1.1.1.1) bzw. Google (8.8.8.8): nur falls Ihr Netz die Samsung-Adresse sperrt, wird deren Name (nicht Ihre Daten) über verschlüsseltes DNS abgefragt.
 • GitHub (api.github.com, github.com): Prüfung auf neue Programmversionen und – nur bei eigener Software des Anbieters (z. B. PowerIPTV) – Laden deren Samsung-Fassung. Dabei werden keine Angaben über Ihre Apps übertragen.
 
-Auf diesem Gerät gespeichert werden: Ihr Samsung-Entwicklerzertifikat (mit privatem Schlüssel), die Geräte-IDs Ihrer Fernseher, gefundene Geräte und Einstellungen. Zwischendateien werden nach Abschluss eines Vorgangs gelöscht. Das Protokoll bleibt nur im Programm und wird nur weitergegeben, wenn Sie es selbst kopieren.
+Auf diesem Gerät gespeichert werden: Ihr Samsung-Entwicklerzertifikat (mit privatem Schlüssel), das von Samsung ausgestellte Geräteprofil (wird vor jeder Installation auf Ihren Fernseher kopiert), die Geräte-IDs Ihrer Fernseher, gefundene Geräte und Einstellungen. Zwischendateien werden nach Abschluss eines Vorgangs gelöscht. Das Protokoll bleibt nur im Programm und wird nur weitergegeben, wenn Sie es selbst kopieren.
 
 Löschen: Zertifikat und Einstellungen werden mit dem Deinstallieren des Programms entfernt.
 

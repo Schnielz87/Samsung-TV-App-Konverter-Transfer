@@ -435,7 +435,9 @@ class TransferController(private val platform: Platform) {
                 return fail("Zu Ihrem Samsung-Zertifikat fehlt das passende Samsung-Zwischenzertifikat im Programm. Bitte das Protokoll kopieren und an den Support schicken.")
             val signed = WidgetSigner.sign(built.wgt, author, dist)
             status("Installiere auf ${device.name} …")
-            val res = SamsungTv.install(conn, signed, isWgt, ::log) { sent, total -> progress(sent, total) }
+            val profile = certs.deviceProfile()
+                ?: return fail("Das Samsung-Geräteprofil fehlt. Bitte erneut übertragen – die App fordert es bei Samsung neu an.")
+            val res = SamsungTv.install(conn, signed, isWgt, ::log, { sent, total -> progress(sent, total) }, profile)
             if (res.success) {
                 runCatching { if (built.appId.isNotEmpty()) SamsungTv.launch(conn, built.appId) }
                 succeed("\"${s.appName.ifBlank { a.displayName }}\" ist auf dem Fernseher installiert. Sie finden die App unter Apps (ganz unten bzw. in der App-Leiste).")

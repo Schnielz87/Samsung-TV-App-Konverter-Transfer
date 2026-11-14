@@ -36,3 +36,11 @@ class ChainTest {
         kotlin.test.assertEquals(names, subjects)
     }
 }
+
+class ProfileTest {
+    @org.junit.jupiter.api.Test
+    fun duidsAreReadFromDeviceProfile() {
+        val xml = "<Profile><TestDeviceInfo><TestDevice>2DCEPZPT36VQE</TestDevice>\n<TestDevice> 43CKFKKBJBU64 </TestDevice></TestDeviceInfo></Profile>"
+        kotlin.test.assertEquals(listOf("2DCEPZPT36VQE", "43CKFKKBJBU64"), de.tvtransfer.sign.SamsungCertificates.profileDuids(xml.toByteArray()))
+    }
+}

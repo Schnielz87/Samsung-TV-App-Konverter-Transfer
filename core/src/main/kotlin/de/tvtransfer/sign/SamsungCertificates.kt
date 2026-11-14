@@ -79,17 +79,29 @@ object SamsungCertificates {
         return completeChain(SigningIdentity(keyPair.private, listOf(cert, caCert("vd_tizen_dev_author_ca.cer"))))
     }
 
-    fun requestDistributor(access: SamsungAccess, keyPair: KeyPair, duids: List<String>): SigningIdentity {
+    /** Verteilerzertifikat + von Samsung unterschriebenes Geräteprofil (device-profile.xml, enthält die DUIDs). */
+    class Distributor(val identity: SigningIdentity, val deviceProfile: ByteArray)
+
+    /**
+     * Wie Tizen Studio im TV-Modus: zwei Anfragen mit derselben CSR –
+     * v1 liefert das Geräteprofil (device-profile.xml), v3 das Zertifikat.
+     */
+    fun requestDistributor(access: SamsungAccess, keyPair: KeyPair, duids: List<String>): Distributor {
         val csr = Csr.distributor(keyPair, access.email, duids)
-        val cert = post(
-            "$CA_BASE/distributors", access, csr, "distributor.csr",
-            extra = listOf(Http.Part("privilege_level", PRIVILEGE), Http.Part("developer_type", "Individual")),
-        )
+        val extra = listOf(Http.Part("privilege_level", PRIVILEGE), Http.Part("developer_type", "Individual"))
+        val profile = postRaw("https://svdca.samsungqbe.com/apis/v1/distributors", access, csr, "distributor.csr", extra)
+        if (!String(profile, Charsets.UTF_8).contains("TestDevice"))
+            throw IllegalStateException("Samsung hat kein gültiges Geräteprofil geliefert: ${String(profile, Charsets.UTF_8).take(200)}")
+        val cert = post("$CA_BASE/distributors", access, csr, "distributor.csr", extra)
         val ca = if (PRIVILEGE == "Partner") "vd_tizen_dev_partner2_2075.crt" else "vd_tizen_dev_public2_2075.crt"
-        return completeChain(SigningIdentity(keyPair.private, listOf(cert, caCert(ca))))
+        return Distributor(completeChain(SigningIdentity(keyPair.private, listOf(cert, caCert(ca)))), profile)
     }
 
-    private fun post(url: String, access: SamsungAccess, csr: String, fileName: String, extra: List<Http.Part>): X509Certificate {
+    /** DUIDs aus einem Geräteprofil. */
+    fun profileDuids(profile: ByteArray): List<String> =
+        Regex("<TestDevice>\\s*([^<\\s]+)\\s*</TestDevice>").findAll(String(profile, Charsets.UTF_8)).map { it.groupValues[1] }.toList()
+
+    private fun postRaw(url: String, access: SamsungAccess, csr: String, fileName: String, extra: List<Http.Part>): ByteArray {
         val parts = listOf(
             Http.Part("access_token", access.accessToken),
             Http.Part("user_id", access.userId),
@@ -98,10 +110,15 @@ object SamsungCertificates {
         val r = Http.postMultipart(url, parts)
         if (!r.ok) {
             val hint = if (r.code == 401 || r.code == 403) " Die Samsung-Anmeldung ist abgelaufen – bitte erneut anmelden." else ""
-            throw IllegalStateException("Samsung hat das Zertifikat verweigert (HTTP ${r.code}).$hint ${r.text.take(300)}")
+            throw IllegalStateException("Samsung hat die Anfrage verweigert (HTTP ${r.code}).$hint ${r.text.take(300)}")
         }
-        return parseCertificate(r.body)
-            ?: throw IllegalStateException("Unerwartete Antwort der Samsung-Zertifizierungsstelle: ${r.text.take(300)}")
+        return r.body
+    }
+
+    private fun post(url: String, access: SamsungAccess, csr: String, fileName: String, extra: List<Http.Part>): X509Certificate {
+        val body = postRaw(url, access, csr, fileName, extra)
+        return parseCertificate(body)
+            ?: throw IllegalStateException("Unerwartete Antwort der Samsung-Zertifizierungsstelle: ${String(body, Charsets.UTF_8).take(300)}")
     }
 
     fun parseCertificate(body: ByteArray): X509Certificate? {
@@ -123,6 +140,7 @@ class CertStore(private val dir: File) {
     private val propsFile = File(dir, "zertifikat.properties")
     private val authorFile = File(dir, "author.p12")
     private val distributorFile = File(dir, "distributor.p12")
+    private val profileFile = File(dir, "device-profile.xml")
 
     private val props = Properties().apply { if (propsFile.exists()) propsFile.inputStream().use { load(it) } }
 
@@ -131,7 +149,12 @@ class CertStore(private val dir: File) {
     val duids: List<String> get() = props.getProperty("duids").orEmpty().split(',').filter { it.isNotBlank() }
     val createdAt: Long get() = props.getProperty("created")?.toLongOrNull() ?: 0L
 
-    fun covers(duid: String): Boolean = hasCertificate && duid in duids
+    /** Zertifikat und Samsung-Geräteprofil vorhanden und dieser Fernseher ist enthalten. */
+    fun covers(duid: String): Boolean =
+        hasCertificate && duid in duids && profileFile.exists() && duid in SamsungCertificates.profileDuids(profileFile.readBytes())
+
+    /** Von Samsung unterschriebenes Geräteprofil (muss vor jeder Installation auf den Fernseher). */
+    fun deviceProfile(): ByteArray? = profileFile.takeIf { it.exists() }?.readBytes()
 
     fun author(): SigningIdentity = SamsungCertificates.completeChain(load(authorFile))
     fun distributor(): SigningIdentity = SamsungCertificates.completeChain(load(distributorFile))
@@ -153,7 +176,9 @@ class CertStore(private val dir: File) {
         log("Fordere Verteilerzertifikat für ${allDuids.size} Fernseher bei Samsung an …")
         val distributor = SamsungCertificates.requestDistributor(access, SamsungCertificates.newKeyPair(), allDuids)
         save(authorFile, author)
-        save(distributorFile, distributor)
+        save(distributorFile, distributor.identity)
+        profileFile.writeBytes(distributor.deviceProfile)
+        log("Samsung-Geräteprofil erhalten (Fernseher: ${SamsungCertificates.profileDuids(distributor.deviceProfile).joinToString()}).")
         props.setProperty("email", access.email)
         props.setProperty("duids", allDuids.joinToString(","))
         props.setProperty("created", System.currentTimeMillis().toString())
@@ -162,7 +187,7 @@ class CertStore(private val dir: File) {
     }
 
     fun delete() {
-        authorFile.delete(); distributorFile.delete(); propsFile.delete()
+        authorFile.delete(); distributorFile.delete(); propsFile.delete(); profileFile.delete()
         props.clear()
     }
 

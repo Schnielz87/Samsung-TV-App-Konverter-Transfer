@@ -94,14 +94,42 @@ object SamsungTv {
      * Überträgt das (bereits signierte) Paket und installiert es.
      * @param isWgt true für Web-Apps (.wgt), false für native Tizen-Pakete (.tpk)
      */
+    /** Fähigkeiten des Fernsehers (sdb "capability:"), z. B. sdk_toolpath und platform_version. */
+    fun capabilities(conn: BridgeConnection): Map<String, String> = runCatching {
+        val stream = conn.open("capability:")
+        val sb = StringBuilder()
+        stream.use {
+            val deadline = System.currentTimeMillis() + 10_000
+            while (!stream.closed && System.currentTimeMillis() < deadline) {
+                val chunk = runCatching { stream.read(3000) }.getOrNull() ?: break
+                sb.append(String(chunk, Charsets.UTF_8))
+            }
+        }
+        sb.lines().mapNotNull { l -> l.indexOf(':').takeIf { it > 0 }?.let { l.substring(0, it).trim() to l.substring(it + 1).trim() } }.toMap()
+    }.getOrDefault(emptyMap())
+
+    /**
+     * "Permit to install" wie in Tizen Studio: das von Samsung unterschriebene Geräteprofil auf den Fernseher kopieren.
+     * Ohne dieses Profil lehnt der Fernseher Apps mit Fehler 118012 bzw. [118, -12] ab – trotz gültigem Zertifikat.
+     */
+    fun permitInstall(conn: BridgeConnection, profile: ByteArray, log: (String) -> Unit) {
+        val caps = capabilities(conn)
+        val version = caps["platform_version"]?.substringBefore('.')?.toIntOrNull()
+        val dir = if (version != null && version < 3) "/home/developer" else caps["sdk_toolpath"]?.takeIf { it.startsWith("/") } ?: REMOTE_DIR
+        log("Übertrage Samsung-Geräteprofil (Installationsfreigabe) nach $dir …")
+        conn.push(ByteArrayInputStream(profile), profile.size.toLong(), "$dir/device-profile.xml", 0x81A4)
+    }
+
     fun install(
         conn: BridgeConnection,
         pkg: ByteArray,
         isWgt: Boolean,
         log: (String) -> Unit,
         onProgress: (Long, Long) -> Unit = { _, _ -> },
+        deviceProfile: ByteArray? = null,
     ): InstallResult {
         val pkgId = packageId(pkg) ?: return InstallResult(false, "Paket-ID nicht gefunden (config.xml fehlt?).", "")
+        deviceProfile?.let { permitInstall(conn, it, log) }
         val remote = "$REMOTE_DIR/$pkgId.${if (isWgt) "wgt" else "tpk"}"
         log("Übertrage Paket auf den Fernseher …")
         conn.push(ByteArrayInputStream(pkg), pkg.size.toLong(), remote, 0x81ED, onProgress)
