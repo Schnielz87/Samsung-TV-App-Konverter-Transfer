@@ -1,5 +1,7 @@
 # TV-App-Transfer
 
+<img src="branding/png/icon-192.png" width="96" alt="TV-App-Transfer Symbol">
+
 Deployment- und Kompatibilitätswerkzeug für vom Nutzer rechtmäßig bereitgestellte Anwendungen auf unterstützten
 Samsung-TV-Geräten. Es ist kompatibel mit ausgewählten Samsung Smart TVs und Android-TV-Geräten (z. B. Fire TV).
 Das Programm gibt es für **Windows (EXE)** und **Android (APK)**, beide mit gleichem Funktionsumfang.
@@ -148,6 +150,12 @@ Für manche Apps gibt es eine eigene Samsung-Fassung. Bei **PowerIPTV** liegt si
 PowerIPTV-Release. Wählen Sie diese App (als APK oder unter „Installierte App vom Handy“), lädt das Programm
 automatisch die neueste Samsung-Fassung, signiert sie und installiert sie auf dem Fernseher. Weitere Apps lassen sich in
 `core/src/main/kotlin/de/tvtransfer/convert/TizenCounterparts.kt` ergänzen.
+
+## Symbol & Grafiken
+
+Das App-Symbol liegt als Vektorgrafik in `branding/icon.svg` (Vordergrund für adaptive Android-Symbole:
+`branding/icon-foreground.svg`). Fertige Größen stehen in `branding/png/` (16 bis 1024 px), das Web-Symbol in
+`branding/favicon.ico`. Neu erzeugen mit `node branding/render.cjs branding/icon.svg <ziel> 512 192 …`.
 
 ## Rechtliches
 
