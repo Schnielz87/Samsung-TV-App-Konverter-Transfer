@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Klartext nur für das Heimnetz nötig: Fernseher-Infos (http://<TV>:8001) und die lokale Samsung-Anmeldung (localhost). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

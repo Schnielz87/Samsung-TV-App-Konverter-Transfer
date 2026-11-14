@@ -1,0 +1,111 @@
+# TV-App-Transfer
+
+Bringt Apps mit wenigen Klicks auf **Samsung-Fernseher** und auf **Android-TV-Sticks**, die am Fernseher stecken.
+Es gibt das Programm als **Windows-Programm (EXE)** und als **Android-App (APK)**. Beide können dasselbe.
+
+> **Wichtig vorab:** Samsung-Fernseher laufen mit **Tizen**, nicht mit Android. Eine normale Android-App (APK)
+> kann dort grundsätzlich nicht laufen. Das liegt nicht an diesem Programm, sondern am System.
+> TV-App-Transfer prüft jede Datei und sagt Ihnen ehrlich, was möglich ist:
+>
+> | Ihre Datei | Was passiert |
+> |---|---|
+> | APK aus Web-Technik (Cordova, PhoneGap, Capacitor, Ionic) | wird zur Samsung-App umgewandelt und installiert |
+> | APK, die nur eine Webseite anzeigt (WebView-Hülle) | die Webseite wird als Samsung-App verpackt und installiert |
+> | Webadresse (Web-Player, Mediathek …) | wird als eigene App auf dem Fernseher angelegt |
+> | Tizen-App (`.wgt` / `.tpk`) | wird für Ihren Fernseher signiert und installiert |
+> | normale Android-App (Java/Kotlin, Flutter, React Native, Unity …) | **nicht** für Samsung umwandelbar → wird direkt auf einen **Android-TV-Stick** (Fire TV, Google TV) übertragen |
+
+## Downloads
+
+Unter **Releases** in diesem Repository:
+
+- `TV-App-Transfer-Setup.exe`: Windows-Installer
+- `TV-App-Transfer-Portable.zip`: Windows ohne Installation (entpacken und `TV-App-Transfer.exe` starten)
+- `TV-App-Transfer.apk`: für Android-Handy oder -Tablet
+
+## Einmalige Vorbereitung am Samsung-Fernseher (ca. 2 Minuten)
+
+1. Fernseher und PC bzw. Handy müssen im selben WLAN sein.
+2. Öffnen Sie am Fernseher **Apps**.
+3. Geben Sie auf der Fernbedienung nacheinander **1 2 3 4 5** ein.
+4. Stellen Sie den **Entwicklermodus** auf **EIN**. Tragen Sie bei „Host PC IP“ die IP-Adresse des PCs bzw. Handys ein.
+   Das Programm zeigt Ihnen diese Adresse unter „Anleitung: Entwicklermodus …“ an.
+5. Starten Sie den Fernseher neu: Ein/Aus-Taste ca. 3 Sekunden halten, bis das Samsung-Logo erscheint.
+
+Tipp: Am Fernseher kann immer nur **eine** Host-IP eingetragen sein. Wenn Sie abwechselnd vom PC und vom Handy
+installieren, müssen Sie die IP dort jeweils umstellen.
+
+## Einmalige Vorbereitung am Android-Stick (Fire TV / Google TV)
+
+1. Öffnen Sie **Einstellungen → Mein Fire TV** (bzw. **Info**) und tippen Sie 7× auf den Gerätenamen.
+   Damit erscheinen die **Entwickleroptionen**.
+2. Schalten Sie dort **ADB-Debugging** ein (Google TV: **USB-Debugging**).
+3. Beim ersten Übertragen erscheint am Fernseher „USB-Debugging zulassen?“.
+   Setzen Sie den Haken bei **Immer zulassen** und bestätigen Sie mit **OK**.
+
+## Bedienung
+
+1. **Was?** Ziehen Sie eine Datei ins Fenster, klicken Sie auf **Datei wählen** oder geben Sie eine Webadresse ein.
+   Auf dem Handy gibt es zusätzlich **Installierte App vom Handy**: Damit überträgt das Programm eine bereits
+   installierte App inklusive aller Teile. Außerdem können Sie Dateien über **Teilen → TV-App-Transfer** schicken.
+2. **Wohin?** Klicken Sie auf **Im WLAN suchen** oder geben Sie die IP-Adresse ein. Wählen Sie dann den Fernseher oder Stick aus.
+   Beim Samsung-Fernseher wird das **Modelljahr** automatisch erkannt. Sie können es auch selbst wählen (2017 bis 2026).
+3. Klicken Sie auf **Übertragen**. Das Programm wandelt die Datei um, signiert sie, überträgt sie und installiert sie.
+
+### Signierwege (Samsung)
+
+Samsung-Fernseher installieren nur Apps, die mit einem **Samsung-Entwicklerzertifikat** signiert sind.
+In diesem Zertifikat ist die Geräte-ID des Fernsehers eingetragen.
+
+- **Samsung-Zertifikat (Standard):** Bei der ersten Installation öffnet sich im Browser die offizielle
+  Samsung-Anmeldung. Melden Sie sich dort mit Ihrem kostenlosen Samsung-Konto an. Ihr Passwort geben Sie nur bei
+  Samsung ein, das Programm sieht es nie. Das Zertifikat wird danach auf Ihrem Gerät gespeichert, und jede weitere
+  Installation läuft ohne Anmeldung. Kommt ein weiterer Fernseher dazu, erweitert das Programm das Zertifikat automatisch.
+- **TizenBrew:** Installiert einmalig den offenen App-Starter [TizenBrew](https://github.com/reisxd/TizenBrew).
+  Danach können Sie Community-Apps (z. B. TizenTube) direkt am Fernseher hinzufügen, ohne erneut zu signieren.
+  Auch TizenBrew braucht für die erste Installation einmal das Samsung-Zertifikat.
+
+### Häufige Probleme
+
+| Meldung | Lösung |
+|---|---|
+| „Fernseher lässt keine Verbindung zu“ | Entwicklermodus an? Stimmt die Host-IP (siehe Programm)? Fernseher danach neu gestartet? |
+| „Zertifikat passt nicht“ | Bei Samsung erneut anmelden, das Programm erstellt das Zertifikat dann neu. Bei einem neuen Fernseher geschieht das automatisch. |
+| Web-App zeigt nur Schwarz | Ältere Fernseher (2017–2019) haben einen alten Browser. Moderne Web-Apps laufen dort teilweise nicht. |
+| Stick: „nicht erreichbar“ | Ist ADB-Debugging eingeschaltet? Ist der Stick im selben WLAN? |
+| Stick: „Zugriff nicht bestätigt“ | Am Fernseher „USB-Debugging zulassen“ mit OK bestätigen. |
+
+## Technik (für Entwickler)
+
+```
+core/       gemeinsame Logik (reines Kotlin/JVM): Analyse, Umwandlung, Signatur, sdb/adb-Protokoll, Samsung-Zertifikate
+shared-ui/  gemeinsame Oberfläche (Compose), wird von Windows- und Android-App mitkompiliert
+desktop/    Windows-Programm (Compose Desktop, Installer über jpackage)
+android/    Android-App (Jetpack Compose)
+```
+
+- **Samsung:** sdb-Protokoll (Port 26101). Upload nach `/home/owner/share/tmp/sdk_tools/`, Installation mit `vd_appinstall`.
+  Die Geräte-ID kommt über `getduid`, Geräteinfos über `http://<TV>:8001/api/v2/`.
+- **Signatur:** XML-DSig für Widgets (`author-signature.xml` und `signature1.xml`, SHA-512 / RSA-SHA512, Exclusive C14N).
+  Die Tests prüfen sie mit Javas Standard-XML-Signaturprüfung.
+- **Zertifikate:** Die Zertifikatsanfragen (CSR) entstehen lokal. Die Samsung-Zertifizierungsstelle für TV („VD“) signiert sie.
+  Die öffentlichen Samsung-Zwischenzertifikate stammen aus der Samsung Certificate Extension für Tizen Studio
+  (`core/src/main/resources/de/tvtransfer/ca/`).
+- **Android-Stick:** adb über WLAN (Port 5555) mit eigener RSA-Anmeldung. Upload per Sync-Protokoll, Installation mit
+  `pm install`, bei geteilten APKs `pm install-create/-write/-commit`.
+- **Umwandlung:** Web-Inhalte aus `assets/www` bzw. `assets/public` werden übernommen. Eine `config.xml` für das
+  Profil `tv-samsung` wird erzeugt. `cordova.js` wird durch einen Ersatz ersetzt, und `tv-bridge.js` sorgt für die
+  Steuerung mit der Fernbedienung (Pfeiltasten, OK, Zurück).
+
+Bauen und Testen:
+
+```bash
+gradle :core:test                 # Tests (ohne Android SDK)
+gradle :desktop:run               # Windows-/Desktop-Programm starten
+gradle :desktop:packageExe        # Windows-Installer (auf Windows)
+gradle :android:assembleRelease   # APK (Android SDK nötig)
+```
+
+Für dauerhaft gleich signierte APKs (Updates ohne Neuinstallation) können Sie die Secrets
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und `ANDROID_KEY_PASSWORD` hinterlegen.
+Ohne diese Secrets wird mit einem Testschlüssel signiert.
