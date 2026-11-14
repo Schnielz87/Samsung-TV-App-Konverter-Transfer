@@ -8,6 +8,8 @@ enum class SourceType(val convertible: Boolean) {
     WEB_APP_IN_APK(true),
     /** APK, die vermutlich nur eine Webseite anzeigt → Webseite wird als Samsung-App verpackt. */
     WEBVIEW_WRAPPER(true),
+    /** Android-App, für die es eine eigene Samsung-Version gibt → diese wird geladen, signiert und installiert. */
+    SAMSUNG_VERSION(true),
     /** Bereits eine Tizen-App (.wgt/.tpk) → wird für den Fernseher signiert und installiert. */
     TIZEN_PACKAGE(true),
     /** Adresse einer Webseite/Web-App → wird als Samsung-App verpackt. */
@@ -41,6 +43,8 @@ data class Analysis(
     val notes: List<String> = emptyList(),
     /** Bei Paketen vom Handy: alle Teile (Basis + Splits). */
     val apkParts: List<File> = listOfNotNull(source),
+    /** Eigene Samsung-Version dieser App (bei [SourceType.SAMSUNG_VERSION]). */
+    val counterpart: TizenCounterpart? = null,
 ) {
     val canConvert: Boolean get() = type.convertible && (type != SourceType.WEBVIEW_WRAPPER || urls.isNotEmpty())
 }
@@ -126,11 +130,22 @@ object Analyzer {
         val stickNote = if (leanback) "Die App hat eine eigene Fernseh-Oberfläche – ideal für einen Android-TV-Stick."
         else "Die App ist für Handys gemacht. Auf einem Android-Stick läuft sie, ist aber eventuell nur eingeschränkt mit der Fernbedienung bedienbar."
 
+        // 0) Gibt es von dieser App eine eigene Samsung-Version? Dann diese verwenden.
+        TizenCounterparts.forPackage(pkg)?.let { c ->
+            return Analysis(
+                file, SourceType.SAMSUNG_VERSION, displayName, pkg, version, "Android-App mit Samsung-Version",
+                "Umwandelbar: Für ${c.name} gibt es eine eigene Samsung-Fassung. Sie wird automatisch geladen, " +
+                    "mit Ihrem Zertifikat für den Fernseher signiert und installiert – mit Fernbedienung und Samsung-Videoplayer.",
+                icon = icon, stickCompatible = true, hasTvLauncher = leanback, apkParts = allParts, counterpart = c,
+                notes = listOf("Ihre Zugänge und Einstellungen übertragen Sie danach in der App selbst (z. B. per QR-Code / Portiva Link)."),
+            )
+        }
+
         fun native(framework: String, why: String) = Analysis(
             file, SourceType.NATIVE_ANDROID, displayName, pkg, version, framework,
             "Nicht umwandelbar: $why Samsung-Fernseher (Tizen) können keine Android-Apps ausführen. " +
                 "Lösung: Einen Android-TV-Stick (z. B. Fire TV Stick oder Google TV Streamer) an den Samsung-Fernseher anschließen – " +
-                "dorthin überträgt dieses Programm die APK direkt.",
+                "dorthin überträgt dieses Programm die APK direkt. Gibt es die App auch als Webseite, können Sie oben deren Adresse eingeben.",
             icon = icon, stickCompatible = true, hasTvLauncher = leanback, notes = listOf(stickNote), apkParts = allParts,
         )
 

@@ -9,6 +9,7 @@ Es gibt das Programm als **Windows-Programm (EXE)** und als **Android-App (APK)*
 >
 > | Ihre Datei | Was passiert |
 > |---|---|
+> | Android-App, von der es eine eigene Samsung-Version gibt (z. B. **PowerIPTV**) | die Samsung-Version wird automatisch geladen, für Ihren Fernseher signiert und installiert |
 > | APK aus Web-Technik (Cordova, PhoneGap, Capacitor, Ionic) | wird zur Samsung-App umgewandelt und installiert |
 > | APK, die nur eine Webseite anzeigt (WebView-Hülle) | die Webseite wird als Samsung-App verpackt und installiert |
 > | Webadresse (Web-Player, Mediathek …) | wird als eigene App auf dem Fernseher angelegt |
@@ -91,6 +92,13 @@ In diesem Zertifikat ist die Geräte-ID des Fernsehers eingetragen.
 | Web-App zeigt nur Schwarz | Ältere Fernseher (2017–2019) haben einen alten Browser. Moderne Web-Apps laufen dort teilweise nicht. |
 | Stick: „nicht erreichbar“ | Ist ADB-Debugging eingeschaltet? Ist der Stick im selben WLAN? |
 | Stick: „Zugriff nicht bestätigt“ | Am Fernseher „USB-Debugging zulassen“ mit OK bestätigen. |
+
+### Apps mit eigener Samsung-Version
+
+Für manche Apps gibt es eine eigene Samsung-Fassung. Bei **PowerIPTV** liegt sie im Ordner „Tizen Samsung“ und in jedem
+PowerIPTV-Release. Wählen Sie diese App (als APK oder unter „Installierte App vom Handy“), lädt das Programm
+automatisch die neueste Samsung-Fassung, signiert sie und installiert sie auf dem Fernseher. Weitere Apps lassen sich in
+`core/src/main/kotlin/de/tvtransfer/convert/TizenCounterparts.kt` ergänzen.
 
 ## Technik (für Entwickler)
 

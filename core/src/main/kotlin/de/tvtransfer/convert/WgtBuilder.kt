@@ -34,6 +34,7 @@ object WgtBuilder {
             val bytes = analysis.source!!.readBytes()
             Result(bytes, de.tvtransfer.tv.SamsungTv.packageId(bytes) ?: "", de.tvtransfer.tv.SamsungTv.applicationId(bytes) ?: "")
         }
+        SourceType.SAMSUNG_VERSION -> throw IllegalStateException("Samsung-Version muss zuerst geladen werden.")
         else -> throw IllegalArgumentException("Diese Datei lässt sich nicht in eine Samsung-App umwandeln.")
     }
 

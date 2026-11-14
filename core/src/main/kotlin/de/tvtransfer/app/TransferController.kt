@@ -4,6 +4,7 @@ import de.tvtransfer.bridge.AdbKey
 import de.tvtransfer.convert.Analysis
 import de.tvtransfer.convert.Analyzer
 import de.tvtransfer.convert.SourceType
+import de.tvtransfer.convert.TizenCounterparts
 import de.tvtransfer.convert.WgtBuilder
 import de.tvtransfer.convert.WgtOptions
 import de.tvtransfer.net.DeviceKind
@@ -304,13 +305,22 @@ class TransferController(private val platform: Platform) {
         val s = _state.value
         val a = s.analysis ?: return@run fail("Keine Quelle gewählt.")
         if (!a.canConvert) return@run fail(a.verdict)
-        val built = WgtBuilder.build(a, WgtOptions(s.appName, a.versionName ?: "1.0.0", s.model, s.chosenUrl))
+        val src = resolveSamsungVersion(a)
+        val built = WgtBuilder.build(src, WgtOptions(s.appName, src.versionName ?: "1.0.0", s.model, s.chosenUrl))
         val f = WgtBuilder.save(built, targetDir, s.appName)
         _state.update { it.copy(lastWgt = f) }
         succeed("Gespeichert: ${f.absolutePath} (noch nicht signiert – wird beim Installieren automatisch signiert).")
     }
 
-    private fun transferToSamsung(device: FoundDevice, a: Analysis) {
+    /** Bei Apps mit eigener Samsung-Version: diese laden und wie eine Tizen-App weiterverarbeiten. */
+    private fun resolveSamsungVersion(a: Analysis): Analysis {
+        val c = a.counterpart ?: return a
+        val f = TizenCounterparts.download(c, platform.cacheDir, ::log)
+        return Analyzer.analyze(f).copy(displayName = a.displayName)
+    }
+
+    private fun transferToSamsung(device: FoundDevice, original: Analysis) {
+        val a = resolveSamsungVersion(original)
         val s = _state.value
         status("Erzeuge Samsung-App …")
         val built = WgtBuilder.build(a, WgtOptions(s.appName.ifBlank { a.displayName }, a.versionName ?: "1.0.0", s.model, s.chosenUrl))
