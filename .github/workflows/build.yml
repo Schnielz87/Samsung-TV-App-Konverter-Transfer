@@ -86,25 +86,16 @@ jobs:
           key: windows-${{ github.run_id }}
           enableCrossOsArchive: true
       - run: mv android-out/* out/ && ls -la out
-      # Veröffentlichen wie bei Portiva/PowerIPTV: im ÖFFENTLICHEN Repo Schnielz87/Portiva-Downloads
-      # (Ordner TV-App-Transfer, Tags "tv-app-transfer-v1.0.<Lauf>"). Ohne Secret DOWNLOADS_TOKEN: im eigenen Repo.
-      # Die Apps prüfen beide Orte (UpdateChecker.REPOS). Feste Dateinamen nicht ändern!
+      # Veröffentlichen im eigenen (öffentlichen) Repo, Tags "tv-app-transfer-v1.0.<Lauf>".
+      # Die Apps suchen dort nach Updates (UpdateChecker.REPO). Feste Dateinamen nicht ändern!
       - name: Release veröffentlichen
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          DOWNLOADS_TOKEN: ${{ secrets.DOWNLOADS_TOKEN }}
           TAG: tv-app-transfer-v${{ env.APP_VERSION }}
         run: |
-          TARGET="--target ${{ github.sha }}"
-          if [ -n "$DOWNLOADS_TOKEN" ]; then
-            export GH_TOKEN="$DOWNLOADS_TOKEN" GH_REPO="Schnielz87/Portiva-Downloads"
-            TARGET=""
-          else
-            echo "::warning::Secret DOWNLOADS_TOKEN fehlt – Release nur im eigenen Repo (die Update-Funktion findet es dort trotzdem)."
-          fi
           cat > notes.md <<EOF
-          **TV-App-Transfer** · Version $APP_VERSION · Branch \`${{ github.ref_name }}\`
+          **TV-App-Transfer** · Version $APP_VERSION
 
           💻 **Windows-PC:** \`TV-App-Transfer-Setup.exe\` herunterladen und ausführen
           (bei der Windows-Warnung „Weitere Informationen“ → „Trotzdem ausführen“).
@@ -115,51 +106,10 @@ jobs:
           Bereits installiert? Beide Apps melden neue Versionen selbst („Nach Updates suchen“, automatisch alle 24 Stunden).
           Zertifikate, Geräte und Einstellungen bleiben bei Updates erhalten.
 
-          Immer die aktuelle Version: https://github.com/Schnielz87/Portiva-Downloads/tree/main/TV-App-Transfer
+          Immer die aktuelle Version: https://github.com/${{ github.repository }}/releases/latest
           EOF
           sed -i 's/^          //' notes.md
           NEWEST=$(gh release list --limit 100 --json tagName --jq '[.[].tagName | select(startswith("tv-app-transfer-v")) | ltrimstr("tv-app-transfer-v1.0.") | tonumber] | max // 0' || echo 0)
           LATEST="--latest"
           if [ "${NEWEST:-0}" -gt "${{ github.run_number }}" ]; then LATEST="--latest=false"; fi
-          if [ "$GH_REPO" = "Schnielz87/Portiva-Downloads" ]; then LATEST="--latest=false"; fi
-          gh release create "$TAG" out/* $TARGET $LATEST --title "TV-App-Transfer $APP_VERSION" --notes-file notes.md
-
-      # Ordnerseite TV-App-Transfer/README.md im Download-Repo auf die neue Version setzen
-      - name: Download-Seite aktualisieren
-        env:
-          DOWNLOADS_TOKEN: ${{ secrets.DOWNLOADS_TOKEN }}
-          V: ${{ env.APP_VERSION }}
-        run: |
-          if [ -z "$DOWNLOADS_TOKEN" ]; then echo "::warning::DOWNLOADS_TOKEN fehlt – Download-Seite nicht aktualisiert"; exit 0; fi
-          export GH_TOKEN="$DOWNLOADS_TOKEN"
-          R=Schnielz87/Portiva-Downloads
-          D="https://github.com/$R/releases/download/tv-app-transfer-v$V"
-          cat > page.md <<EOF
-          # TV-App-Transfer
-
-          Apps auf **Samsung-Fernseher** bringen (umwandeln, signieren, installieren) – oder APKs direkt auf einen
-          **Android-TV-Stick** (Fire TV, Google TV) am Fernseher. Für Windows-PC und Android-Handy.
-
-          ## Aktuelle Version: $V ($(date +%d.%m.%Y))
-
-          | Gerät | Download |
-          |---|---|
-          | 💻 Windows-PC (Installer) | [**TV-App-Transfer-Setup.exe**]($D/TV-App-Transfer-Setup.exe) |
-          | 💻 Windows-PC (ohne Installation) | [TV-App-Transfer-Portable.zip]($D/TV-App-Transfer-Portable.zip) |
-          | 📱 Android-Handy/Tablet | [**TV-App-Transfer.apk**]($D/TV-App-Transfer.apk) |
-
-          ## Installieren
-          - **PC:** Setup ausführen; bei der Windows-Warnung „Weitere Informationen“ → „Trotzdem ausführen“.
-          - **Handy:** APK antippen, herunterladen, installieren (einmalig „Installation aus unbekannten Quellen“ erlauben).
-          - **Updates:** Beide Apps melden neue Versionen selbst („Nach Updates suchen“). Daten bleiben erhalten.
-
-          ## Ältere Versionen
-          [Alle Versionen von TV-App-Transfer](https://github.com/$R/releases?q=tv-app-transfer&expanded=true)
-          EOF
-          sed -i 's/^          //' page.md
-          CUR=$(gh api "repos/$R/contents/TV-App-Transfer/README.md" --jq .content 2>/dev/null | base64 -d 2>/dev/null | grep -oE 'Aktuelle Version: 1\.0\.[0-9]+' | grep -oE '[0-9]+$' || true)
-          if [ -n "$CUR" ] && [ "$CUR" -gt "${{ github.run_number }}" ]; then echo "::notice::Seite zeigt schon 1.0.$CUR"; exit 0; fi
-          SHA=$(gh api "repos/$R/contents/TV-App-Transfer/README.md" --jq .sha 2>/dev/null || true)
-          ARGS=(-f message="TV-App-Transfer: Version $V" -f content="$(base64 -w0 page.md)")
-          [ -n "$SHA" ] && ARGS+=(-f sha="$SHA")
-          gh api -X PUT "repos/$R/contents/TV-App-Transfer/README.md" "${ARGS[@]}" --jq .commit.sha
+          gh release create "$TAG" out/* --target ${{ github.sha }} $LATEST --title "TV-App-Transfer $APP_VERSION" --notes-file notes.md

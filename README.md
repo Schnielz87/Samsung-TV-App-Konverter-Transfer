@@ -17,14 +17,13 @@ Es gibt das Programm als **Windows-Programm (EXE)** und als **Android-App (APK)*
 
 ## Downloads
 
-**Immer die aktuelle Version:** https://github.com/Schnielz87/Portiva-Downloads/tree/main/TV-App-Transfer
-(Ausweichquelle: [Releases dieses Repositorys](https://github.com/Schnielz87/Samsung-TV-App-Konverter-Transfer/releases/latest))
+Immer die aktuelle Version (Seite mit allen Dateien): https://github.com/Schnielz87/Samsung-TV-App-Konverter-Transfer/releases/latest
 
 | Gerät | Datei |
 |---|---|
-| Windows-PC (Installer) | `TV-App-Transfer-Setup.exe` |
-| Windows-PC (ohne Installation) | `TV-App-Transfer-Portable.zip`: entpacken und `TV-App-Transfer.exe` starten |
-| Android-Handy/Tablet | `TV-App-Transfer.apk` |
+| Windows-PC (Installer) | [**TV-App-Transfer-Setup.exe**](https://github.com/Schnielz87/Samsung-TV-App-Konverter-Transfer/releases/latest/download/TV-App-Transfer-Setup.exe) |
+| Windows-PC (ohne Installation) | [TV-App-Transfer-Portable.zip](https://github.com/Schnielz87/Samsung-TV-App-Konverter-Transfer/releases/latest/download/TV-App-Transfer-Portable.zip): entpacken und `TV-App-Transfer.exe` starten |
+| Android-Handy/Tablet | [**TV-App-Transfer.apk**](https://github.com/Schnielz87/Samsung-TV-App-Konverter-Transfer/releases/latest/download/TV-App-Transfer.apk) |
 
 - **PC:** Führen Sie das Setup aus. Bei der Windows-Warnung klicken Sie auf „Weitere Informationen“ und dann auf „Trotzdem ausführen“.
 - **Handy:** Tippen Sie die APK an und installieren Sie sie. Dafür müssen Sie einmalig „Installation aus unbekannten Quellen“ erlauben.
@@ -125,10 +124,9 @@ gradle :android:assembleRelease   # APK (Android SDK nötig)
 ```
 
 **Versionen & Updates (Schema wie PowerIPTV/Portiva):** Die Version lautet `1.0.<Laufnummer>` von `.github/workflows/build.yml`.
-Benennen Sie diese Datei nie um, sonst beginnt die Zählung neu. Jeder Push erzeugt das Release `tv-app-transfer-v1.0.<Lauf>`.
-Mit dem Secret `DOWNLOADS_TOKEN` landet es im öffentlichen Repo `Schnielz87/Portiva-Downloads` (Ordner `TV-App-Transfer`),
-ohne das Secret im eigenen Repo. Die Apps prüfen beide Orte (`UpdateChecker.REPOS`).
-Die festen Dateinamen (`UpdateChecker.APK_NAME`, `WINDOWS_SETUP_NAME`) dürfen nicht geändert werden.
+Benennen Sie diese Datei nie um, sonst beginnt die Zählung neu. Jeder Push erzeugt in diesem Repo das Release
+`tv-app-transfer-v1.0.<Lauf>`, und dort suchen die Apps nach Updates (`UpdateChecker.REPO`). Das Repo muss deshalb
+öffentlich bleiben. Die festen Dateinamen (`UpdateChecker.APK_NAME`, `WINDOWS_SETUP_NAME`) dürfen nicht geändert werden.
 
 Die APK ist mit dem festen Schlüssel `android/signing/sideload.jks` signiert, damit sich Updates über die alte Version installieren lassen.
 Optional ersetzen die Secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` und

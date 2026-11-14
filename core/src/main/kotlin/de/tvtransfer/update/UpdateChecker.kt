@@ -21,14 +21,14 @@ data class ReleaseInfo(
 
 /**
  * Prüft auf GitHub, ob es eine neuere Version gibt (gleiches Schema wie PowerIPTV und Portiva):
- * Versionen heißen "tv-app-transfer-v1.0.<Laufnummer>" und liegen im öffentlichen Download-Repo
- * (je Software eigener Tag-Präfix, deshalb nie "releases/latest"). Kein GitHub-Konto nötig.
+ * Versionen heißen "tv-app-transfer-v1.0.<Laufnummer>" und liegen als Releases im eigenen öffentlichen Repo.
+ * Kein GitHub-Konto nötig.
  */
 class UpdateChecker(
     private val apiBase: String = "https://api.github.com",
     private val repos: List<String> = REPOS,
 ) {
-    /** Neueste Version aus allen Quellen (Download-Repo bevorzugt, Code-Repo als Ausweichquelle). */
+    /** Neueste veröffentlichte Version. */
     fun latest(): ReleaseInfo {
         var lastError: IOException? = null
         val found = repos.mapNotNull { repo ->
@@ -87,13 +87,12 @@ class UpdateChecker(
     }
 
     companion object {
-        /** Öffentliches Download-Repo (nur fertige Dateien) und – als Ausweichquelle – das Code-Repo. */
-        const val DOWNLOADS_REPO = "Schnielz87/Portiva-Downloads"
-        const val CODE_REPO = "Schnielz87/Samsung-TV-App-Konverter-Transfer"
-        val REPOS = listOf(DOWNLOADS_REPO, CODE_REPO)
+        /** Eigenes öffentliches Repo – dort liegen alle Versionen (Releases). */
+        const val REPO = "Schnielz87/Samsung-TV-App-Konverter-Transfer"
+        val REPOS = listOf(REPO)
 
-        /** Ordner dieser Software im Download-Repo (immer aktuelle Download-Links). */
-        const val FOLDER_URL = "https://github.com/$DOWNLOADS_REPO/tree/main/TV-App-Transfer"
+        /** Seite mit der aktuellen Version. */
+        const val RELEASES_URL = "https://github.com/$REPO/releases/latest"
 
         const val TAG_PREFIX = "tv-app-transfer-v"
 
