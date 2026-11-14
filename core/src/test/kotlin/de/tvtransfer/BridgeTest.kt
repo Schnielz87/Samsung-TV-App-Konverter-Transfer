@@ -55,11 +55,13 @@ class BridgeTest {
                     val em = c.doFinal(sig)
                     signatureOk = em.takeLast(20).toByteArray().contentEquals(token)
                 }
-                send(out, BridgeConnection.CNXN, 0x01000000, 4096, "device::ro.product.model=FakeTV;\u0000".toByteArray())
+                // wie manche Fernseher: großen Wert ankündigen, aber Pakete > 4096 Byte nicht vertragen
+                send(out, BridgeConnection.CNXN, 0x01000000, 256 * 1024, "device::ro.product.model=FakeTV;\u0000".toByteArray())
                 var syncRemote = 0
                 val syncBuf = ByteArrayOutputStream()
                 while (true) {
                     val (cmd, a, d) = try { read() } catch (e: Exception) { return@thread }
+                    if (d.size > 4096) { s.close(); return@thread }
                     when (cmd) {
                         BridgeConnection.OPEN -> {
                             val svc = String(d).trimEnd('\u0000')
@@ -111,7 +113,7 @@ class BridgeTest {
     fun shellAndPushOverSdb() {
         val dev = FakeDevice(requireAuth = false)
         dev.start()
-        BridgeConnection.connect("127.0.0.1", dev.server.localPort).use { c ->
+        BridgeConnection.connect("127.0.0.1", dev.server.localPort, maxData = 4096).use { c ->
             assertTrue(c.banner.contains("FakeTV"))
             assertEquals("Ausgabe von 0 getduid\n", c.shell("0 getduid"))
             val data = ByteArray(300_000) { (it % 251).toByte() }

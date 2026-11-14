@@ -76,6 +76,8 @@ class BridgeConnection private constructor(
             connectTimeoutMs: Int = 5000,
             authWaitMs: Int = 60_000,
             onAuthPrompt: () -> Unit = {},
+            /** Größte Paketgröße, die wir ankündigen und selbst senden (Samsung: 4096). */
+            maxData: Int = if (port == SDB_PORT) 4096 else 256 * 1024,
         ): BridgeConnection {
             val socket = Socket()
             socket.tcpNoDelay = true
@@ -85,7 +87,6 @@ class BridgeConnection private constructor(
                 socket.close()
                 throw BridgeException.Unreachable(host, port, e)
             }
-            val maxData = if (port == SDB_PORT) 4096 else 256 * 1024
             val conn = BridgeConnection(socket, authKey, maxData)
             try {
                 conn.handshake(connectTimeoutMs.coerceAtLeast(8000), authWaitMs, onAuthPrompt)
@@ -188,7 +189,9 @@ class BridgeConnection private constructor(
             val end = off + len
             while (pos < end) {
                 if (closed) throw BridgeException.Closed("Das Gerät hat den Datenstrom geschlossen.")
-                val n = minOf(remoteMaxData, end - pos)
+                // Nie größer als beide Seiten erlauben – Samsung-Fernseher kündigen teils mehr an,
+                // trennen aber bei Paketen über 4096 Byte die Verbindung.
+                val n = minOf(remoteMaxData, ourMaxData, end - pos)
                 send(WRTE, localId, remoteId, data.copyOfRange(pos, pos + n))
                 pos += n
                 // auf Bestätigung warten (Flusskontrolle)
