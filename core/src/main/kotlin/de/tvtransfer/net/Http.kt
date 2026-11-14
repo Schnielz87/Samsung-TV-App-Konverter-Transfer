@@ -54,7 +54,7 @@ object Http {
             val u = URL(url)
             val ip = SecureDns.resolve(u.host) ?: throw IOException(
                 "Die Adresse ${u.host} wird in Ihrem Netz blockiert (z. B. durch einen Werbefilter, \"Privates DNS\" am Handy oder Pi-hole). " +
-                    "Bitte den Filter kurz ausschalten oder ein anderes Netz (z. B. mobile Daten) verwenden.", e,
+                    "Bitte den Filter kurz ausschalten (Android: Einstellungen → Verbindungen → Weitere Verbindungseinstellungen → Privates DNS → Aus) und erneut übertragen.", e,
             )
             DirectHttps.request(u, ip, "POST", mapOf("Content-Type" to contentType), bytes, timeoutMs)
         }
