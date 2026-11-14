@@ -465,15 +465,23 @@ private fun UpdateCard(s: UiState, c: TransferController) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Version ${s.appVersion}", color = Brand.text, fontWeight = FontWeight.SemiBold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { c.checkForUpdates() }, enabled = !s.checkingUpdate && s.updateProgress == null) {
-                    Text(if (s.checkingUpdate) "Suche …" else "Nach Updates suchen")
+                val u = s.update
+                if (u != null) {
+                    // Neue Version gefunden: direkt hier installieren – kein Hochscrollen nötig
+                    Button(onClick = c::updateNow, enabled = s.updateProgress == null) {
+                        Text(if (s.updateProgress != null) "Wird geladen …" else "Jetzt auf ${u.version} aktualisieren")
+                    }
+                } else {
+                    OutlinedButton(onClick = { c.checkForUpdates() }, enabled = !s.checkingUpdate && s.updateProgress == null) {
+                        Text(if (s.checkingUpdate) "Suche …" else "Nach Updates suchen")
+                    }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { c.setAutoUpdateCheck(!s.autoUpdateCheck) }) {
                     androidx.compose.material3.Checkbox(checked = s.autoUpdateCheck, onCheckedChange = c::setAutoUpdateCheck)
                     Text("Automatisch prüfen (alle 24 Stunden)", color = Brand.text, fontSize = 13.sp)
                 }
             }
-            if (s.update == null) UpdateProgress(s)
+            UpdateProgress(s)
         }
     }
 }
