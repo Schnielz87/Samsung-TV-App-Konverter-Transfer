@@ -41,6 +41,45 @@ auf **Nach Updates suchen** klicken. Gibt es eine neue Version, erscheint oben e
 
 Ihre Samsung-Zertifikate, gespeicherten Geräte und Einstellungen bleiben bei jedem Update erhalten.
 
+## Schritt-für-Schritt-Anleitung
+
+Diese Anleitung finden Sie auch in der App unter **Anleitung** (ganz oben).
+
+
+### Einmalig: Fernseher vorbereiten
+
+- Fernseher und Handy bzw. PC müssen im selben WLAN sein.
+- Am Fernseher die Home-Taste drücken, unten ganz links "Apps" öffnen. Auf diesem Bildschirm bleiben (keine App anwählen).
+1 2 3 4 5 eingeben: mit Zifferntasten direkt; bei der schmalen Fernbedienung die Taste "123" drücken bzw. gedrückt halten und die Ziffern im Bildschirm-Ziffernfeld wählen; alternativ in der SmartThings-App auf dem Handy (Fernbedienung → 123).
+- Im Fenster "Entwicklermodus" den Schalter auf EIN stellen und bei "Host PC IP" die IP-Adresse eintragen, die TV-App-Transfer unter "Wohin?" beim Fernseher anzeigt (die IP DIESES Geräts). OK drücken.
+- Fernseher richtig neu starten: Ein/Aus-Taste der Fernbedienung gedrückt halten, bis das Samsung-Logo erscheint.
+- Wichtig: Am Fernseher kann immer nur eine IP stehen. Wechseln Sie zwischen Handy und PC, muss die IP dort umgestellt werden.
+
+### Einmalig: Samsung-Konto
+
+- Sie brauchen ein kostenloses Samsung-Konto (falls nicht vorhanden: auf account.samsung.com anlegen).
+- Bei der ersten Installation öffnet sich die Samsung-Anmeldung im Browser. Dort anmelden und danach zur App zurückkehren – das Zertifikat wird dann automatisch erstellt und gespeichert.
+- Werbe- oder Tracking-Filter (Privates DNS, AdGuard, Pi-hole) können die Samsung-Adressen blockieren. Die App umgeht das in der Regel selbst; sonst den Filter für die Einrichtung kurz ausschalten.
+
+### Jedes Mal: App auf den Fernseher bringen
+
+1. Was? Datei wählen (APK, .wgt), eine installierte App vom Handy wählen oder eine Webadresse eingeben. Die App zeigt sofort, ob sie für Samsung umwandelbar ist (grüner Punkt).
+2. Wohin? "Im WLAN suchen" drücken und den Fernseher antippen. Erscheint ein gelber Hinweis, diesen zuerst erledigen (meist: falsche IP am Fernseher).
+3. Modelljahr prüfen (wird meist automatisch erkannt) und den Signierweg "Samsung-Zertifikat" lassen.
+4. "Auf den Samsung-Fernseher übertragen" drücken. Beim ersten Mal öffnet sich die Samsung-Anmeldung – anmelden, zurück zur App, warten.
+5. Fertig, wenn "ist auf dem Fernseher installiert" erscheint. Die App finden Sie am Fernseher unter Apps (ganz unten / in der App-Leiste).
+
+### Android-Stick (Fire TV, Google TV) statt Samsung
+
+- Für Apps, die nicht umwandelbar sind: Am Stick Einstellungen → Mein Fire TV → Info → 7× auf den Namen tippen → Entwickleroptionen → ADB-Debugging EIN.
+- In der App "Im WLAN suchen", den Android-Stick wählen, übertragen. Am Fernseher "USB-Debugging zulassen" mit "Immer zulassen" bestätigen.
+
+### Wenn etwas nicht klappt
+
+- Unten im Protokoll auf "Kopieren" tippen und den Text an den Support schicken.
+- "Verbindung beendet / nur das Gerät mit der IP … herein": IP am Fernseher stimmt nicht – siehe "Fernseher vorbereiten".
+- "Zertifikat passt nicht": Unter "Wohin?" erneut übertragen und bei Samsung anmelden; das Zertifikat wird neu erstellt.
+
 ## Einmalige Vorbereitung am Samsung-Fernseher (ca. 2 Minuten)
 
 1. Fernseher und PC bzw. Handy müssen im selben WLAN sein.
@@ -87,9 +126,9 @@ In diesem Zertifikat ist die Geräte-ID des Fernsehers eingetragen.
 
 Mit dem Knopf **Kopieren** über dem Protokoll übernehmen Sie das ganze Protokoll in die Zwischenablage, z. B. um es dem Support zu schicken.
 
-
 | Meldung | Lösung |
 |---|---|
+| „Die Adresse … wird in Ihrem Netz blockiert“ / „Unable to resolve host svdca.samsungqbe.com“ | Ein Werbefilter (Privates DNS am Handy, AdGuard, Pi-hole, Router-Filter) sperrt die Samsung-Zertifizierungsstelle. Die App weicht seit 1.0.9 automatisch auf verschlüsseltes DNS aus. Klappt es trotzdem nicht: Filter kurz ausschalten oder mobile Daten nutzen. |
 | „Der Fernseher lässt nur das Gerät mit der IP … herein“ | Am Fernseher ist die IP eines anderen Geräts eingetragen (z. B. die des PCs). Tragen Sie unter Apps → 1 2 3 4 5 die angezeigte IP dieses Geräts ein und starten Sie den Fernseher neu. Oder starten Sie die Übertragung von dem Gerät, dessen IP eingetragen ist. |
 | „Fernseher lässt keine Verbindung zu“ | Entwicklermodus an? Stimmt die Host-IP (siehe Programm)? Fernseher danach neu gestartet? |
 | „Zertifikat passt nicht“ | Bei Samsung erneut anmelden, das Programm erstellt das Zertifikat dann neu. Bei einem neuen Fernseher geschieht das automatisch. |

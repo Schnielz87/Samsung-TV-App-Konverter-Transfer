@@ -106,6 +106,7 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
         Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1.4f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Header()
+                HelpCard()
                 UpdateBanner(s, controller)
                 SourceCard(s, controller, host, dropHighlight)
                 TargetCard(s, controller)
@@ -120,6 +121,7 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Header()
+            HelpCard()
             UpdateBanner(s, controller)
             SourceCard(s, controller, host, dropHighlight)
             TargetCard(s, controller)
@@ -371,6 +373,31 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
         if (s.waitingForStickConfirm) Message("Bitte jetzt am Fernseher \"USB-Debugging zulassen\" bestätigen.", Brand.warn)
         s.error?.let { Message(it, Brand.bad) }
         s.success?.let { Message(it, Brand.ok) }
+    }
+}
+
+/** Aufklappbare Schritt-für-Schritt-Anleitung (Text: core/.../help/anleitung.txt). */
+@Composable
+private fun HelpCard() {
+    var open by remember { mutableStateOf(false) }
+    val text = remember {
+        TransferController::class.java.getResourceAsStream("/de/tvtransfer/help/anleitung.txt")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = Brand.card), border = BorderStroke(1.dp, Brand.border), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            TextButton(onClick = { open = !open }) { Text(if (open) "Anleitung ausblenden ▴" else "Anleitung: So funktioniert es Schritt für Schritt ▾") }
+            if (open) {
+                text.lines().filter { it.isNotBlank() }.forEach { line ->
+                    if (line.startsWith("# ")) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(line.removePrefix("# "), color = Brand.accent, fontWeight = FontWeight.SemiBold)
+                    } else {
+                        Text(if (line.first().isDigit()) line else "• $line", color = Brand.text, fontSize = 13.sp, modifier = Modifier.padding(vertical = 2.dp))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 }
 
