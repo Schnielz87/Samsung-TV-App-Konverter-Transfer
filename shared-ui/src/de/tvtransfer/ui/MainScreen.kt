@@ -428,7 +428,20 @@ private fun Message(text: String, color: Color) {
 private fun LogCard(s: UiState, modifier: Modifier) {
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0F1A)), border = BorderStroke(1.dp, Brand.border), modifier = modifier) {
         Column(Modifier.padding(12.dp)) {
-            Text("Protokoll", color = Brand.muted, fontWeight = FontWeight.SemiBold)
+            val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+            var copied by remember { mutableStateOf(false) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text("Protokoll", color = Brand.muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                OutlinedButton(
+                    onClick = {
+                        val text = "TV-App-Transfer ${s.appVersion}\n" + s.log.joinToString("\n")
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
+                        copied = true
+                    },
+                    enabled = s.log.isNotEmpty(),
+                ) { Text(if (copied) "Kopiert ✓" else "Kopieren") }
+            }
+            androidx.compose.runtime.LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(2000); copied = false } }
             Spacer(Modifier.height(6.dp))
             SelectionContainer {
                 Column(Modifier.verticalScroll(rememberScrollState())) {

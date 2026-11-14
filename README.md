@@ -85,6 +85,9 @@ In diesem Zertifikat ist die Geräte-ID des Fernsehers eingetragen.
 
 ### Häufige Probleme
 
+Mit dem Knopf **Kopieren** über dem Protokoll übernehmen Sie das ganze Protokoll in die Zwischenablage, z. B. um es dem Support zu schicken.
+
+
 | Meldung | Lösung |
 |---|---|
 | „Der Fernseher lässt nur das Gerät mit der IP … herein“ | Am Fernseher ist die IP eines anderen Geräts eingetragen (z. B. die des PCs). Tragen Sie unter Apps → 1 2 3 4 5 die angezeigte IP dieses Geräts ein und starten Sie den Fernseher neu. Oder starten Sie die Übertragung von dem Gerät, dessen IP eingetragen ist. |
