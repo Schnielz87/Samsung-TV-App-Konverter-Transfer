@@ -21,6 +21,8 @@ import de.tvtransfer.sign.SamsungCertificates
 import de.tvtransfer.sign.WidgetSigner
 import de.tvtransfer.stick.AndroidStick
 import de.tvtransfer.tv.SamsungTv
+import de.tvtransfer.tv.LgTv
+import de.tvtransfer.convert.WebOsBuilder
 import de.tvtransfer.tv.TvModel
 import de.tvtransfer.update.ReleaseInfo
 import de.tvtransfer.update.UpdateChecker
@@ -90,6 +92,10 @@ data class UiState(
     val autoUpdateCheck: Boolean = true,
     /** Dauerhafter Hinweis zum gewählten Gerät (z. B. falsche Entwickler-IP am Fernseher). */
     val deviceWarning: String? = null,
+    /** Gewählte Zielplattform (Reiter Samsung / LG / Android TV). */
+    val platform: TargetPlatform = TargetPlatform.SAMSUNG,
+    /** LG: Passphrase aus der Developer-Mode-App am Fernseher. */
+    val lgPassphrase: String = "",
     /** Nutzungsbedingungen inkl. Rechte-Bestätigung angenommen (aktuelle Fassung). */
     val termsAccepted: Boolean = false,
     /** Dialog zur Rechte-Bestätigung anzeigen (vor der ersten Verarbeitung). */
@@ -106,6 +112,7 @@ class TransferController(private val platform: Platform) {
     private val settingsFile = File(platform.dataDir, "einstellungen.json")
     private var login: LoginReceiver? = null
     private var job: Job? = null
+    private val lgKeys = LgTv.KeyStore(File(platform.dataDir, "lg"))
     private val updater = UpdateChecker()
     private val updateFile = File(platform.dataDir, "update.properties")
     private val updateProps: Properties by lazy { Properties().apply { if (updateFile.exists()) runCatching { updateFile.inputStream().use { load(it) } } } }
@@ -306,10 +313,25 @@ class TransferController(private val platform: Platform) {
         }
     }
 
+    /** Reiter wechseln: passendes Gerät vorauswählen. */
+    fun setPlatform(p: TargetPlatform) {
+        _state.update { s ->
+            val sel = s.selected?.takeIf { it.kind == p.deviceKind } ?: s.devices.firstOrNull { it.kind == p.deviceKind }
+            s.copy(platform = p, selected = sel, deviceWarning = null, error = null, success = null)
+        }
+        _state.value.selected?.let { select(it) } ?: saveSettings()
+        _state.update { it.copy(lgPassphrase = it.selected?.let { d -> lgKeys.passphrase(d.host) } ?: it.lgPassphrase) }
+    }
+
+    fun setLgPassphrase(p: String) = _state.update { it.copy(lgPassphrase = p.trim()) }
+
     fun select(d: FoundDevice) {
         val detected = d.tvInfo?.detectedModel
+        val platform = TargetPlatform.entries.first { it.deviceKind == d.kind }
         _state.update {
             it.copy(
+                platform = platform,
+                lgPassphrase = if (d.kind == DeviceKind.LG_TV) lgKeys.passphrase(d.host) ?: it.lgPassphrase else it.lgPassphrase,
                 selected = d,
                 model = detected ?: it.model,
                 modelAutoDetected = detected != null,
@@ -381,6 +403,14 @@ class TransferController(private val platform: Platform) {
                 } else if (!a.canConvert) return fail(a.verdict)
                 run(if (draft) "Erzeuge Entwurf …" else "Wandle um …") { transferToSamsung(device, a, draft) }
             }
+            DeviceKind.LG_TV -> {
+                if (draft) {
+                    if (!a.canDraft) return fail("Für diese Datei ist kein Entwurf möglich.")
+                } else TargetPlatform.LG.support(a).let { (ok, why) -> if (!ok) return fail(why) }
+                if (s.lgPassphrase.isBlank() && lgKeys.passphrase(device.host) == null)
+                    return fail("Bitte zuerst die Passphrase aus der App „Developer Mode“ am LG-Fernseher eingeben (unter „Wohin?“).")
+                run(if (draft) "Erzeuge Entwurf für LG …" else "Wandle für LG um …") { transferToLg(device, a, draft) }
+            }
             DeviceKind.ANDROID_STICK -> {
                 if (a.type == SourceType.WEBSITE || a.type == SourceType.TIZEN_PACKAGE || a.apkParts.isEmpty())
                     return fail("Auf einen Android-Stick lassen sich nur APK-Dateien übertragen.")
@@ -415,6 +445,21 @@ class TransferController(private val platform: Platform) {
     private fun doExportWgt(targetDir: File, onDone: (File) -> Unit, draft: Boolean) = run("Konvertiere …") {
         val s = _state.value
         val a = s.analysis ?: return@run fail("Keine Quelle gewählt.")
+        if (s.platform == TargetPlatform.ANDROID_TV) return@run fail("Für Android TV ist keine Umwandlung nötig – die APK wird unverändert übertragen.")
+        if (s.platform == TargetPlatform.LG) {
+            if (draft) { if (!a.canDraft) return@run fail("Für diese Datei ist kein Entwurf möglich.") }
+            else TargetPlatform.LG.support(a).let { (ok, why) -> if (!ok) return@run fail(why) }
+            val ipk = buildLgIpk(a, draft) ?: return@run
+            targetDir.mkdirs()
+            val f = File(targetDir, (s.appName.ifBlank { a.displayName }).filter { it.isLetterOrDigit() || it in " -_" }.ifBlank { "App" } + ".ipk")
+            f.writeBytes(ipk.bytes)
+            _state.update { it.copy(lastWgt = f) }
+            onDone(f)
+            succeed((if (draft) "LG-Entwurf erzeugt (Oberfläche nachgebaut – Funktionen müssen nachprogrammiert werden)" else "Für LG webOS konvertiert") +
+                (if (ipk.warnings.isNotEmpty()) " – Hinweise: ${ipk.warnings.joinToString(" ")}" else "") +
+                ".\nGespeichert: ${_state.value.lastWgtLocation ?: f.absolutePath}\nInstallierbar über den LG-Entwicklermodus (dieses Programm oder LGs ares-install).")
+            return@run
+        }
         if (draft) { if (!a.canDraft) return@run fail("Für diese Datei ist kein Entwurf möglich.") }
         else if (!a.canConvert) return@run fail(a.verdict)
         val src = if (draft) a else resolveSamsungVersion(a)
@@ -453,6 +498,53 @@ class TransferController(private val platform: Platform) {
         val lim = (_state.value.analysis?.findings.orEmpty() + check?.findings.orEmpty())
             .filter { it.status == Portability.LIMITED }.map { it.title }.distinct()
         return if (lim.isEmpty()) "" else " – mit Einschränkungen: ${lim.take(4).joinToString("; ")}${if (lim.size > 4) " …" else ""}"
+    }
+
+    // ------------------------------------------------------------------ LG webOS
+
+    /** Erzeugt die LG-App (.ipk): erst die Web-App wie für Samsung bauen und prüfen, dann für webOS verpacken. */
+    private fun buildLgIpk(a: Analysis, draft: Boolean): WebOsBuilder.Ipk? {
+        val wgt = if (!draft && a.type == SourceType.TIZEN_PACKAGE) {
+            if (a.source?.name?.lowercase()?.endsWith(".tpk") == true) { fail("Native Samsung-Apps (.tpk) lassen sich nicht für LG umpacken."); return null }
+            a.source!!.readBytes()
+        } else {
+            val built = buildFor(a, draft)
+            validateOrFail(built.wgt, a) ?: return null
+            built.wgt
+        }
+        status("Verpacke für LG webOS …")
+        val ipk = WebOsBuilder.fromWgt(wgt)
+        log("LG-Paket ${ipk.appId} ${ipk.version} (${ipk.bytes.size / 1024} KB) erstellt.")
+        ipk.warnings.forEach { log("Hinweis: $it") }
+        return ipk
+    }
+
+    private fun transferToLg(device: FoundDevice, a: Analysis, draft: Boolean) {
+        val ipk = buildLgIpk(a, draft) ?: return
+        val pass = _state.value.lgPassphrase.ifBlank { lgKeys.passphrase(device.host) ?: "" }
+        status("Verbinde mit dem LG-Fernseher …")
+        var key = lgKeys.key(device.host)
+        val session = try {
+            LgTv.connect(device.host, key ?: LgTv.fetchKey(device.host).also { key = it }, pass)
+        } catch (e: LgTv.LgException) {
+            // Schlüssel ändert sich, wenn der Entwicklermodus neu eingerichtet wurde → einmal neu holen
+            log("Hole Geräteschlüssel neu …")
+            key = LgTv.fetchKey(device.host)
+            LgTv.connect(device.host, key!!, pass)
+        }
+        lgKeys.save(device.host, key!!, pass)
+        try {
+            val (ok, msg) = LgTv.install(session, ipk.bytes, ipk.appId, ::log)
+            if (ok) {
+                runCatching { LgTv.launch(session, ipk.appId) }
+                succeed("\"${ipk.title}\" ist auf dem LG-Fernseher installiert" +
+                    (if (draft) " – als ENTWURF: Oberfläche nachgebaut, Funktionen müssen nachprogrammiert werden" else "") +
+                    (if (ipk.warnings.isNotEmpty()) ". Hinweise: ${ipk.warnings.joinToString(" ")}" else "") +
+                    ". Hinweis: Apps aus dem LG-Entwicklermodus bleiben nur, solange der Entwicklermodus aktiv ist (in der Developer-Mode-App regelmäßig verlängern).")
+            } else fail(msg)
+        } finally {
+            session.disconnect()
+        }
     }
 
     /** Bei Apps mit eigener Samsung-Version: diese laden und wie eine Tizen-App weiterverarbeiten. */
@@ -594,6 +686,7 @@ class TransferController(private val platform: Platform) {
             Json.write(
                 mapOf(
                     "model" to s.model.name,
+                    "platform" to s.platform.name,
                     "selected" to s.selected?.let { mapOf("host" to it.host, "kind" to it.kind.name, "name" to it.name) },
                     "devices" to s.devices.map { mapOf("host" to it.host, "kind" to it.kind.name, "name" to it.name) },
                 ),
@@ -610,7 +703,8 @@ class TransferController(private val platform: Platform) {
             FoundDevice(it["host"].toString(), DeviceKind.valueOf(it["kind"].toString()), it["name"].toString())
         }
         val devices = (m["devices"] as? List<*>)?.mapNotNull { runCatching { dev(it) }.getOrNull() } ?: emptyList()
-        _state.update { it.copy(model = model, devices = devices, selected = runCatching { dev(m["selected"]) }.getOrNull()) }
+        val platform = runCatching { TargetPlatform.valueOf(m["platform"].toString()) }.getOrDefault(TargetPlatform.SAMSUNG)
+        _state.update { it.copy(model = model, platform = platform, devices = devices, selected = runCatching { dev(m["selected"]) }.getOrNull()) }
     }
 
     // ------------------------------------------------------------------ Hilfen

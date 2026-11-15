@@ -24,6 +24,30 @@ bestimmte App umgewandelt werden kann.
 > | normale Android-App (Java/Kotlin, Flutter, React Native, Unity …) | **nicht** für Samsung umwandelbar → kann unverändert auf ein **Android-TV-Gerät** (Fire TV, Google TV) übertragen werden |
 > | App mit Lizenz- oder Kopierschutz | wird **nicht** umgewandelt (das würde den Schutz umgehen) → nur unverändert auf ein Android-TV-Gerät |
 
+## Zielplattformen (Reiter in der App)
+
+| Reiter | Fernseher | Was das Programm macht |
+|---|---|---|
+| **Samsung** | Samsung Smart TV (Tizen) | wandelt um in `.wgt`, signiert mit Ihrem Samsung-Zertifikat und installiert über den Entwicklermodus |
+| **LG** | LG Smart TV (webOS) | wandelt um in `.ipk` (Format von LGs Werkzeug ares) und installiert über LGs App „Developer Mode“ |
+| **Android TV** | Philips, Sony, TCL, Xiaomi, Sharp, Grundig … mit Android TV/Google TV, Fire TV Stick, Google TV Streamer | keine Umwandlung nötig: Die APK wird unverändert übertragen und installiert |
+
+Nicht möglich sind Fernseher mit Titan OS (neuere Philips-Einstiegsmodelle), VIDAA (Hisense) und Roku. Diese Systeme
+erlauben keine Installation eigener Apps.
+
+**LG einmalig einrichten:**
+1. Installieren Sie im LG Content Store die App **„Developer Mode“**.
+2. Melden Sie sich darin mit einem kostenlosen LG-Entwicklerkonto an (webostv.developer.lge.com).
+3. Schalten Sie „Dev Mode Status“ EIN. Der Fernseher startet neu.
+4. Öffnen Sie Developer Mode erneut und schalten Sie „Key Server“ EIN.
+5. Tragen Sie die angezeigte **Passphrase** in TV-App-Transfer unter „Wohin?“ ein.
+
+Der LG-Entwicklermodus läuft nach 50 Stunden ab und muss in der App verlängert werden. Darüber installierte Apps bleiben
+nur, solange er aktiv ist.
+
+Eigene Apps mit eigener TV-Fassung (z. B. PowerIPTV) gibt es bisher nur als Samsung-Fassung. Eine LG-Fassung müsste
+eigens programmiert werden, weil die Samsung-Fassung Samsungs eigenen Videoplayer nutzt.
+
 ## Downloads
 
 Immer die aktuelle Version (Seite mit allen Dateien): https://github.com/Schnielz87/Samsung-TV-App-Konverter-Transfer/releases/latest

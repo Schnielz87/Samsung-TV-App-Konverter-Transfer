@@ -10,23 +10,24 @@ import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-enum class DeviceKind { SAMSUNG_TV, ANDROID_STICK }
+enum class DeviceKind { SAMSUNG_TV, LG_TV, ANDROID_STICK }
 
 data class FoundDevice(
     val host: String,
     val kind: DeviceKind,
     val name: String,
-    /** Nur Samsung: Entwicklermodus-Port 26101 ist offen. */
+    /** Samsung: Entwicklermodus-Port 26101 offen · LG: Entwicklermodus-SSH (9922) offen. */
     val sdbOpen: Boolean = false,
     val tvInfo: TvInfo? = null,
 ) {
     val title: String get() = when (kind) {
         DeviceKind.SAMSUNG_TV -> "$name ($host)"
-        DeviceKind.ANDROID_STICK -> "Android-Stick ($host)"
+        DeviceKind.LG_TV -> "$name ($host)"
+        DeviceKind.ANDROID_STICK -> "Android-TV-Gerät ($host)"
     }
 }
 
-/** Sucht im eigenen WLAN nach Samsung-Fernsehern (Port 8001/26101) und Android-Sticks (Port 5555). */
+/** Sucht im eigenen WLAN nach Samsung- (8001/26101) und LG-Fernsehern (3000/9922) sowie Android-TV-Geräten (5555). */
 object Discovery {
 
     /** Eigene IPv4-Adressen im Heimnetz (192.168.x.x, 10.x.x.x, 172.16-31.x.x). */
@@ -57,7 +58,12 @@ object Discovery {
             val info = if (tvApi) SamsungTv.fetchInfo(host) else null
             result += FoundDevice(host, DeviceKind.SAMSUNG_TV, info?.name ?: "Samsung TV", sdb, info)
         }
-        if (isOpen(host, 5555, timeoutMs)) result += FoundDevice(host, DeviceKind.ANDROID_STICK, "Android-Stick")
+        // LG webOS: 3000/3001 = Fernbedienungsdienst, 9922 = SSH des Entwicklermodus
+        val lgDev = isOpen(host, 9922, timeoutMs)
+        if (lgDev || (!tvApi && isOpen(host, 3000, timeoutMs) && isOpen(host, 3001, timeoutMs))) {
+            result += FoundDevice(host, DeviceKind.LG_TV, "LG webOS TV", lgDev)
+        }
+        if (isOpen(host, 5555, timeoutMs)) result += FoundDevice(host, DeviceKind.ANDROID_STICK, "Android-TV-Gerät")
         return result
     }
 

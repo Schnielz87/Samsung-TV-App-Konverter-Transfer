@@ -45,7 +45,7 @@ compose.desktop {
             description = "Deployment- und Kompatibilitätswerkzeug für eigene Anwendungen auf unterstützten TV-Geräten"
             vendor = "TV-App-Transfer"
             // ermittelt mit ./gradlew :desktop:suggestRuntimeModules
-            modules("java.instrument", "jdk.unsupported", "jdk.crypto.ec", "java.naming")
+            modules("java.instrument", "jdk.unsupported", "jdk.crypto.ec", "java.naming", "java.security.jgss")
             windows {
                 menuGroup = "TV-App-Transfer"
                 shortcut = true

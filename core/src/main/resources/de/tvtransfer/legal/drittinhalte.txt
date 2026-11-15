@@ -1,9 +1,9 @@
 {MARKE}
 
-Fire TV, Android und Google TV sind Marken ihrer jeweiligen Rechteinhaber. Alle Herstellernamen werden nur beschreibend verwendet, um die Kompatibilität zu erklären.
+LG und webOS, Philips, Sony, TCL, Fire TV, Android und Google TV sind Marken ihrer jeweiligen Rechteinhaber. Alle Herstellernamen werden nur beschreibend verwendet, um die Kompatibilität zu erklären.
 
 Das Programm enthält öffentliche Zwischenzertifikate der Samsung-Entwicklerzertifizierung (aus der „Samsung Certificate Extension“ für Tizen Studio, Versionen 2.0.70 und 2.0.75). Sie werden nur benötigt, damit ein mit Ihrem eigenen Samsung-Zertifikat signiertes Paket vom Fernseher geprüft werden kann.
 
-Verwendete Open-Source-Komponenten: Kotlin und kotlinx.coroutines (Apache License 2.0), Jetpack Compose / Compose Multiplatform (Apache License 2.0), AndroidX (Apache License 2.0).
+Verwendete Open-Source-Komponenten: Kotlin und kotlinx.coroutines (Apache License 2.0), JSch (mwiede-Fork, BSD-Lizenz) für die SSH-Verbindung zu LG-Fernsehern, Jetpack Compose / Compose Multiplatform (Apache License 2.0), AndroidX (Apache License 2.0).
 
 Bei der Umwandlung werden nur die für die Kompatibilität nötigen Dateien ergänzt (config.xml, Fernbedienungs-Hilfe tv-bridge.js, ggf. Ersatz für cordova.js, Symbol). Marken-, Urheber- und Lizenzhinweise der verarbeiteten App werden nicht entfernt.

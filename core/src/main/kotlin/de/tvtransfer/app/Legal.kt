@@ -35,7 +35,7 @@ object Legal {
 
     /** Positionierung – so (und nur so) wird das Produkt beschrieben. */
     const val POSITIONING =
-        "Deployment- und Kompatibilitätswerkzeug für vom Nutzer rechtmäßig bereitgestellte Anwendungen auf unterstützten Samsung-TV-Geräten."
+        "Deployment- und Kompatibilitätswerkzeug für vom Nutzer rechtmäßig bereitgestellte Anwendungen auf unterstützten Smart-TV-Geräten (Samsung, LG, Android TV)."
 
     /** Wortlaut der Rechte-Bestätigung (Bestandteil der Nutzungsbedingungen). */
     const val RIGHTS_CONFIRMATION =
@@ -44,8 +44,8 @@ object Legal {
             "Lizenz- oder sonstigen Rechten Dritter verwenden."
 
     const val TRADEMARK_NOTICE =
-        "Samsung und Tizen sind Marken ihrer jeweiligen Rechteinhaber. Dieses Produkt ist ein unabhängiges Softwarewerkzeug und " +
-            "steht in keiner Verbindung zu Samsung, sofern nicht ausdrücklich anders angegeben."
+        "Samsung, Tizen, LG, webOS, Philips, Sony, Android und Google TV sind Marken ihrer jeweiligen Rechteinhaber. Dieses Produkt ist ein " +
+            "unabhängiges Softwarewerkzeug und steht in keiner Verbindung zu diesen Herstellern, sofern nicht ausdrücklich anders angegeben."
 
     /** Rechtstexte (Abschnitte) mit eingesetzten Anbieterangaben. */
     fun text(name: String): String {

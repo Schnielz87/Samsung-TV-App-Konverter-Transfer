@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.tvtransfer.app.Legal
+import de.tvtransfer.app.TargetPlatform
 import de.tvtransfer.app.TransferController
 import de.tvtransfer.app.UiState
 import de.tvtransfer.convert.SourceType
@@ -106,6 +107,7 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
         Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1.4f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Header()
+                PlatformTabs(s, controller)
                 HelpCard()
                 UpdateBanner(s, controller)
                 SourceCard(s, controller, host, dropHighlight)
@@ -122,6 +124,7 @@ fun MainScreen(controller: TransferController, host: UiHost, wide: Boolean, drop
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Header()
+            PlatformTabs(s, controller)
             HelpCard()
             UpdateBanner(s, controller)
             SourceCard(s, controller, host, dropHighlight)
@@ -141,7 +144,7 @@ private fun Header() {
     Column {
         Text("TV-App-Transfer", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Brand.text)
         Text(Legal.POSITIONING, color = Brand.muted, fontSize = 14.sp)
-        Text("Kompatibel mit ausgewählten Samsung Smart TVs und Android-TV-Geräten.", color = Brand.muted, fontSize = 12.sp)
+        Text("Kompatibel mit ausgewählten Samsung- und LG-Smart-TVs sowie Android-TV-Geräten (Philips, Sony, TCL …).", color = Brand.muted, fontSize = 12.sp)
     }
 }
 
@@ -205,9 +208,10 @@ private fun SourceCard(s: UiState, c: TransferController, host: UiHost, dropHigh
 
         val a = s.analysis ?: return@Section
         HorizontalDivider(color = Brand.border)
+        val (supported, why) = s.platform.support(a)
         val color = when {
-            a.canConvert -> Brand.ok
-            a.type == SourceType.NATIVE_ANDROID -> Brand.warn
+            supported -> Brand.ok
+            a.stickCompatible || a.canDraft -> Brand.warn
             else -> Brand.bad
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -215,18 +219,20 @@ private fun SourceCard(s: UiState, c: TransferController, host: UiHost, dropHigh
             Spacer(Modifier.width(8.dp))
             Text(
                 when {
-                    a.canConvert -> "Für Samsung umwandelbar"
-                    a.type == SourceType.NATIVE_ANDROID -> "Nicht für Samsung umwandelbar – aber für einen Android-Stick geeignet"
+                    supported && s.platform == TargetPlatform.ANDROID_TV -> "Für Android TV geeignet (ohne Umwandlung)"
+                    supported -> "Für ${s.platform.tab} (${s.platform.system}) umwandelbar"
+                    a.canDraft -> "Nicht direkt für ${s.platform.tab} umwandelbar – Entwurf möglich, oder Android-TV-Gerät"
+                    a.stickCompatible -> "Nicht für ${s.platform.tab} umwandelbar – aber für Android-TV-Geräte geeignet"
                     else -> "Nicht unterstützt"
                 },
                 color = color, fontWeight = FontWeight.SemiBold,
             )
         }
         Text("${a.framework}${a.packageName?.let { " · $it" } ?: ""}${a.versionName?.let { " · Version $it" } ?: ""}", color = Brand.muted, fontSize = 12.sp)
-        Text(a.verdict, color = Brand.text, fontSize = 14.sp)
+        Text(if (s.platform == TargetPlatform.SAMSUNG) a.verdict else why, color = Brand.text, fontSize = 14.sp)
         a.notes.forEach { Text("• $it", color = Brand.muted, fontSize = 13.sp) }
         if (a.findings.isNotEmpty()) AnalysisReport(a.findings)
-        if (a.canDraft) DraftBox(s, c, host)
+        if (a.canDraft && s.platform != TargetPlatform.ANDROID_TV) DraftBox(s, c, host)
         if (a.canConvert) {
             OutlinedTextField(value = s.appName, onValueChange = c::setAppName, singleLine = true, label = { Text("Name auf dem Fernseher") }, modifier = Modifier.fillMaxWidth())
         }
@@ -256,8 +262,10 @@ private fun TargetCard(s: UiState, c: TransferController) {
             Spacer(Modifier.width(8.dp))
             OutlinedButton(onClick = { c.addHost(ip) }, enabled = ip.isNotBlank() && !s.busy) { Text("Hinzufügen") }
         }
-        if (s.devices.isEmpty()) Text("Noch keine Geräte. Fernseher einschalten und \"Im WLAN suchen\" drücken.", color = Brand.muted, fontSize = 13.sp)
-        s.devices.forEach { d ->
+        val shown = s.devices.filter { it.kind == s.platform.deviceKind }
+        if (shown.isEmpty()) Text("Noch kein ${s.platform.title}-Gerät gefunden. Gerät einschalten und \"Im WLAN suchen\" drücken." +
+            (if (s.devices.isNotEmpty()) " (Andere gefundene Geräte sehen Sie in den anderen Reitern.)" else ""), color = Brand.muted, fontSize = 13.sp)
+        shown.forEach { d ->
             val selected = s.selected?.host == d.host && s.selected?.kind == d.kind
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -274,7 +282,8 @@ private fun TargetCard(s: UiState, c: TransferController) {
                             d.tvInfo?.let { if (it.developerMode) "Entwicklermodus an" else "Entwicklermodus AUS" },
                             if (d.sdbOpen) "bereit" else null,
                         ).joinToString(" · ")
-                        DeviceKind.ANDROID_STICK -> "Fire TV / Google TV / Android TV – APKs direkt"
+                        DeviceKind.LG_TV -> if (d.sdbOpen) "Entwicklermodus aktiv – bereit" else "Entwicklermodus noch nicht aktiv (siehe Anleitung unten)"
+                        DeviceKind.ANDROID_STICK -> "Philips/Sony/TCL mit Android TV, Fire TV, Google TV – APKs direkt"
                     }
                     if (sub.isNotEmpty()) Text(sub, color = Brand.muted, fontSize = 12.sp)
                 }
@@ -287,11 +296,27 @@ private fun TargetCard(s: UiState, c: TransferController) {
             ModelPicker(s, c)
             Text(s.certInfo, color = if (s.hasCertificate) Brand.ok else Brand.muted, fontSize = 12.sp)
             DevModeHelp(s)
-        } else if (s.selected?.kind == DeviceKind.ANDROID_STICK) {
+        }
+        if (s.platform == TargetPlatform.LG) {
+            HorizontalDivider(color = Brand.border)
+            OutlinedTextField(
+                value = s.lgPassphrase, onValueChange = c::setLgPassphrase, singleLine = true,
+                label = { Text("Passphrase aus der App „Developer Mode“ am LG-Fernseher") }, modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Einmalig am LG-Fernseher: 1. Im LG Content Store die App „Developer Mode“ installieren. " +
+                    "2. Darin mit einem kostenlosen LG-Entwicklerkonto anmelden (webostv.developer.lge.com). " +
+                    "3. „Dev Mode Status“ EIN → Fernseher startet neu. 4. Developer Mode erneut öffnen, „Key Server“ EIN. " +
+                    "5. Die angezeigte Passphrase (6 Zeichen) oben eintragen. Der Entwicklermodus läuft nach 50 Stunden ab und muss in der App verlängert werden.",
+                color = Brand.muted, fontSize = 13.sp,
+            )
+        } else if (s.platform == TargetPlatform.ANDROID_TV) {
             HorizontalDivider(color = Brand.border)
             Text(
-                "Am Stick einmalig: Einstellungen → Mein Fire TV (bzw. Info) → 7× auf den Gerätenamen tippen → Entwickleroptionen → \"ADB-Debugging\" EIN. " +
-                    "Beim ersten Übertragen erscheint am Fernseher \"USB-Debugging zulassen?\" – \"Immer zulassen\" anhaken und OK.",
+                "Philips, Sony, TCL & Co. mit Android TV / Google TV sowie Fire TV Stick: Einstellungen → Geräteeinstellungen/Info → " +
+                    "7× auf „Build“ bzw. den Gerätenamen tippen → Entwickleroptionen → „USB-Debugging“ bzw. „ADB-Debugging“ EIN " +
+                    "(manche Philips-Modelle: zusätzlich „Netzwerk-Debugging“). Beim ersten Übertragen „USB-Debugging zulassen?“ mit „Immer zulassen“ bestätigen. " +
+                    "Nicht unterstützt: Fernseher mit Titan OS, VIDAA (Hisense) oder Roku – dort lassen sich keine eigenen Apps installieren.",
                 color = Brand.muted, fontSize = 13.sp,
             )
         }
@@ -342,7 +367,8 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
         val target = s.selected
         val label = when {
             target == null -> "Übertragen"
-            target.kind == DeviceKind.ANDROID_STICK -> "Auf den Android-Stick übertragen"
+            target.kind == DeviceKind.ANDROID_STICK -> "Auf das Android-TV-Gerät übertragen"
+            target.kind == DeviceKind.LG_TV -> "Auf den LG-Fernseher übertragen"
             else -> "Auf den Samsung-Fernseher übertragen"
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -350,8 +376,9 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
                 onClick = c::transfer, enabled = !s.busy && target != null,
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.ok, contentColor = Brand.bg),
             ) { Text(label, fontWeight = FontWeight.Bold) }
-            if (s.analysis?.canConvert == true && s.analysis?.type != SourceType.TIZEN_PACKAGE)
-                OutlinedButton(onClick = { host.exportWgt(false) }, enabled = !s.busy) { Text("Konvertieren (.wgt speichern)") }
+            val exportable = s.analysis?.let { s.platform.fileExt != null && s.platform.support(it).first && !(s.platform == TargetPlatform.SAMSUNG && it.type == SourceType.TIZEN_PACKAGE) } == true
+            if (exportable)
+                OutlinedButton(onClick = { host.exportWgt(false) }, enabled = !s.busy) { Text("Konvertieren (.${s.platform.fileExt} speichern)") }
         }
         if (s.busy) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -369,6 +396,28 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
     }
 }
 
+/** Reiter für die Zielplattform: Samsung (Tizen), LG (webOS), Android TV (Philips, Sony, TCL …). */
+@Composable
+private fun PlatformTabs(s: UiState, c: TransferController) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        TargetPlatform.entries.forEach { p ->
+            val active = s.platform == p
+            Surface(
+                color = if (active) Brand.accent else Brand.card,
+                border = BorderStroke(1.dp, if (active) Brand.accent else Brand.border),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f).clickable(enabled = !s.busy) { c.setPlatform(p) },
+            ) {
+                Column(Modifier.padding(vertical = 10.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(p.tab, color = if (active) Brand.bg else Brand.text, fontWeight = FontWeight.Bold)
+                    Text(p.system, color = if (active) Brand.bg else Brand.muted, fontSize = 11.sp)
+                }
+            }
+        }
+    }
+    Text("Ziel: ${s.platform.title} – ${s.platform.brands}", color = Brand.muted, fontSize = 12.sp)
+}
+
 /** Entwurf-Konverter für echte Android-Apps: Oberfläche nachbauen, Logik muss nachprogrammiert werden. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -377,15 +426,15 @@ private fun DraftBox(s: UiState, c: TransferController, host: UiHost) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Entwurf-Konverter", color = Brand.text, fontWeight = FontWeight.SemiBold)
             Text(
-                "Die App wird zerlegt: Bildschirme, Texte, Farben, Bilder und Symbol werden ausgelesen und als Samsung-TV-App nachgebaut " +
+                "Die App wird zerlegt: Bildschirme, Texte, Farben, Bilder und Symbol werden ausgelesen und als ${s.platform.tab}-TV-App nachgebaut " +
                     "(mit Fernbedienungssteuerung). Die Programmlogik (Wiedergabe, Anmeldung, Daten laden …) steckt im Android-Code und " +
                     "kann nicht übernommen werden – der Entwurf zeigt die Oberfläche, Funktionen müssen nachprogrammiert werden. " +
                     "Ein Bericht in der App listet genau auf, was fehlt. Nur für Apps verwenden, an denen Sie die Rechte haben (z. B. eigene Apps).",
                 color = Brand.muted, fontSize = 12.sp,
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { host.exportWgt(true) }, enabled = !s.busy) { Text("Als Entwurf konvertieren (.wgt)") }
-                if (s.selected?.kind == DeviceKind.SAMSUNG_TV)
+                OutlinedButton(onClick = { host.exportWgt(true) }, enabled = !s.busy) { Text("Als Entwurf konvertieren (.${s.platform.fileExt})") }
+                if (s.selected?.kind == DeviceKind.SAMSUNG_TV || s.selected?.kind == DeviceKind.LG_TV)
                     OutlinedButton(onClick = c::transferDraft, enabled = !s.busy) { Text("Entwurf auf den Fernseher") }
             }
         }

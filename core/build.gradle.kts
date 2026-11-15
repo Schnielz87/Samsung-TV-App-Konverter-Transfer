@@ -15,6 +15,8 @@ kotlin {
 
 dependencies {
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    // SSH für LG webOS (Entwicklermodus: Installation über ssh/sftp wie LGs ares-cli)
+    implementation("com.github.mwiede:jsch:0.2.20")
     testImplementation(kotlin("test"))
 }
 
