@@ -368,32 +368,65 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
     }
 }
 
-/** Aufklappbarer Analysebericht: jeder Bestandteil der App mit Bewertung für Samsung-TV. */
+/** Aufklappbarer Analysebericht: jeder Bestandteil der App mit Bewertung für Samsung-TV (Bereiche einzeln aufklappbar). */
 @Composable
 private fun AnalysisReport(findings: List<de.tvtransfer.convert.Finding>) {
-    var open by remember(findings) { mutableStateOf(findings.any { it.status == de.tvtransfer.convert.Portability.BLOCKER }) }
+    var open by remember(findings) { mutableStateOf(false) }
     val blockers = findings.count { it.status == de.tvtransfer.convert.Portability.BLOCKER }
     val limited = findings.count { it.status == de.tvtransfer.convert.Portability.LIMITED }
-    TextButton(onClick = { open = !open }) {
-        Text((if (open) "▴ " else "▾ ") + "Analysebericht (${findings.size} Punkte" +
-            (if (blockers > 0) ", $blockers nicht portierbar" else "") + (if (limited > 0) ", $limited eingeschränkt" else "") + ")")
+    fun colorOf(p: de.tvtransfer.convert.Portability) = when (p) {
+        de.tvtransfer.convert.Portability.OK -> Brand.ok
+        de.tvtransfer.convert.Portability.LIMITED -> Brand.warn
+        de.tvtransfer.convert.Portability.BLOCKER -> Brand.bad
+        de.tvtransfer.convert.Portability.INFO -> Brand.muted
     }
-    if (!open) return
-    findings.groupBy { it.area }.forEach { (area, list) ->
-        Text(area, color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        list.forEach { f ->
-            val color = when (f.status) {
-                de.tvtransfer.convert.Portability.OK -> Brand.ok
-                de.tvtransfer.convert.Portability.LIMITED -> Brand.warn
-                de.tvtransfer.convert.Portability.BLOCKER -> Brand.bad
-                de.tvtransfer.convert.Portability.INFO -> Brand.muted
+    Surface(
+        color = Color.Transparent, border = BorderStroke(1.dp, Brand.border), shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().clickable { open = !open }.padding(12.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Analysebericht", color = Brand.text, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "${findings.size} Punkte" + (if (blockers > 0) " · $blockers nicht portierbar" else "") +
+                            (if (limited > 0) " · $limited eingeschränkt" else ""),
+                        color = Brand.muted, fontSize = 12.sp,
+                    )
+                }
+                Text(if (open) "Zuklappen ▴" else "Aufklappen ▾", color = Brand.accent, fontSize = 13.sp)
             }
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 2.dp)) {
-                Box(Modifier.padding(top = 5.dp).size(8.dp).background(color, RoundedCornerShape(50)))
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text("${f.title} – ${f.status.label}", color = Brand.text, fontSize = 13.sp)
-                    if (f.detail.isNotBlank()) Text(f.detail, color = Brand.muted, fontSize = 12.sp)
+            if (open) {
+                HorizontalDivider(color = Brand.border)
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                    findings.groupBy { it.area }.forEach { (area, list) ->
+                        var areaOpen by remember(findings, area) { mutableStateOf(false) }
+                        val worst = list.minByOrNull { it.status.ordinal.let { o -> listOf(2, 1, 0, 3)[o] } }?.status
+                            ?: de.tvtransfer.convert.Portability.INFO
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { areaOpen = !areaOpen }.padding(vertical = 8.dp),
+                        ) {
+                            Box(Modifier.size(10.dp).background(colorOf(worst), RoundedCornerShape(50)))
+                            Spacer(Modifier.width(8.dp))
+                            Text("$area (${list.size})", color = Brand.text, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                            Text(if (areaOpen) "▴" else "▾", color = Brand.accent)
+                        }
+                        if (areaOpen) list.forEach { f ->
+                            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(start = 18.dp, bottom = 6.dp)) {
+                                Box(Modifier.padding(top = 5.dp).size(8.dp).background(colorOf(f.status), RoundedCornerShape(50)))
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text("${f.title} – ${f.status.label}", color = Brand.text, fontSize = 13.sp)
+                                    if (f.detail.isNotBlank()) Text(f.detail, color = Brand.muted, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { open = false }) { Text("Bericht zuklappen ▴") }
                 }
             }
         }
