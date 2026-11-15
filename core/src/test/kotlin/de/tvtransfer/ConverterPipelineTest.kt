@@ -56,3 +56,15 @@ class ConverterPipelineTest {
         assertTrue(r.blockers().single().title.contains("fehlt.js"))
     }
 }
+
+class ApkSetTest {
+    @Test
+    fun filesAreFoundInSplitApks() {
+        val base = File.createTempFile("basis", ".apk").apply { deleteOnExit(); writeBytes(Zip.write(linkedMapOf("res/layout/main.xml" to "B".toByteArray()))) }
+        val split = File.createTempFile("teil", ".apk").apply { deleteOnExit(); writeBytes(Zip.write(linkedMapOf("res/drawable-xxhdpi/logo.png" to "S".toByteArray(), "res/layout/main.xml" to "X".toByteArray()))) }
+        val set = de.tvtransfer.convert.ApkSet(listOf(base, split))
+        assertEquals("B", String(set.entry("res/layout/main.xml")!!)) // Basis hat Vorrang
+        assertEquals("S", String(set.entry("res/drawable-xxhdpi/logo.png")!!))
+        assertTrue(set.names().size == 2)
+    }
+}

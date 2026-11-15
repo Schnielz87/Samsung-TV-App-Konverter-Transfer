@@ -158,6 +158,11 @@ Mit **„Als Entwurf konvertieren (.wgt)“** oder **„Entwurf auf den Fernsehe
 - **Bericht in der App** (Knopf „Bericht“) und `entwurf.json` im Paket: Bildschirme, Android-Aktivitäten, gefundene
   Webadressen und Schnittstellen sowie alle Texte als Grundlage für die Nachbearbeitung.
 
+Das funktioniert mit **hineingezogenen APK-Dateien** (auch Bündel wie .apks/.xapk) genauso wie mit **auf dem Handy
+installierten Apps**. Wählen Sie dafür „Installierte App vom Handy“, für vorinstallierte Apps setzen Sie den Haken
+„Auch vorinstallierte System-Apps“. Ist eine App in mehrere Teil-Dateien aufgeteilt (Basis + Auflösung/Sprache/Prozessor),
+liest der Konverter alle Teile zusammen.
+
 Apps, deren Oberfläche im Code statt in Layouts beschrieben ist (Jetpack Compose, Flutter), liefern kaum Bildschirme.
 Apps mit Lizenz- oder Kopierschutz werden nicht verarbeitet. Nutzen Sie den Entwurf-Konverter nur für Apps, an denen Sie
 die Rechte haben (z. B. Ihre eigenen).

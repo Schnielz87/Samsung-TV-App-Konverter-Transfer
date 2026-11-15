@@ -16,6 +16,11 @@ class ResourceTable private constructor() {
 
     val entries: List<Entry> get() = byId.values.flatten()
 
+    /** Übernimmt die Einträge einer weiteren Tabelle (z. B. aus einer Teil-APK mit Bildern für eine Auflösung). */
+    fun merge(other: ResourceTable) {
+        other.byId.forEach { (id, list) -> byId.getOrPut(id) { ArrayList() }.addAll(list) }
+    }
+
     fun name(id: Int): String? = byId[id]?.firstOrNull()?.let { "${it.type}/${it.name}" }
 
     /** Text einer @string-Ressource (Standardsprache bevorzugt). */

@@ -19,9 +19,12 @@ object DraftGenerator {
     private const val MAX_SCREENS = 30
 
     fun generate(apk: File, analysis: Analysis): Draft {
-        val names = Zip.names(apk)
-        val res = Zip.entry(apk, "resources.arsc")?.let { ResourceTable.parse(it) } ?: ResourceTable.empty()
-        val manifest = runCatching { BinaryXml.parse(Zip.entry(apk, "AndroidManifest.xml")!!) }.getOrDefault(emptyList())
+        // Installierte Apps bestehen oft aus Basis + Teil-APKs (Auflösung, Sprache, Prozessor) → alle zusammen lesen
+        val set = ApkSet(listOf(apk) + analysis.apkParts.filter { it != apk })
+        val names = set.names()
+        val res = set.parts.mapNotNull { p -> Zip.entry(p, "resources.arsc")?.let { ResourceTable.parse(it) } }
+            .fold(ResourceTable.empty()) { acc, t -> acc.also { it.merge(t) } }
+        val manifest = runCatching { BinaryXml.parse(set.entry("AndroidManifest.xml")!!) }.getOrDefault(emptyList())
         val out = LinkedHashMap<String, ByteArray>()
         val images = LinkedHashMap<String, String>() // APK-Pfad -> Pfad im Entwurf
 
@@ -44,10 +47,10 @@ object DraftGenerator {
             .sortedWith(compareBy({ if (it.name.contains("main") || it.name.contains("home")) 0 else 1 }, { it.name }))
             .take(MAX_SCREENS)
 
-        val ctx = Ctx(apk, res, images)
+        val ctx = Ctx(set, res, images)
         val screens = ArrayList<Pair<String, String>>() // Titel -> HTML
         for (l in screenLayouts) {
-            val xml = Zip.entry(apk, l.text!!) ?: continue
+            val xml = set.entry(l.text!!) ?: continue
             val tree = BinaryXmlTree.parse(xml) ?: continue
             val html = StringBuilder()
             ctx.render(tree, html, 0)
@@ -62,16 +65,16 @@ object DraftGenerator {
             .associate { it.name to it.text!! }
         val activities = manifest.filter { it.name == "activity" }.mapNotNull { it.attrs["name"] }
         val urls = names.filter { Regex("^classes\\d*\\.dex$").matches(it) }
-            .flatMap { n -> Zip.entry(apk, n)?.let { Analyzer.extractUrls(it) } ?: emptyList() }
+            .flatMap { n -> set.entry(n)?.let { Analyzer.extractUrls(it) } ?: emptyList() }
             .let { Analyzer.rankUrls(it, analysis.packageName) }
 
         // --- Bilder kopieren (Pixelbilder) bzw. schreiben (umgewandelte Vektorgrafiken)
-        images.forEach { (src, dst) -> Zip.entry(apk, src)?.let { out[dst] = it } }
+        images.forEach { (src, dst) -> set.entry(src)?.let { out[dst] = it } }
         ctx.svgs.forEach { (dst, svg) -> out[dst] = svg.toByteArray() }
 
         val appName = analysis.displayName
         val summary = buildList {
-            add("${screens.size} Bildschirm(e) aus Android-Layouts nachgebaut")
+            add("${screens.size} Bildschirm(e) aus Android-Layouts nachgebaut" + if (set.parts.size > 1) " (aus ${set.parts.size} Teil-Dateien gelesen)" else "")
             if (screens.isEmpty()) add("Keine Android-Layouts gefunden (z. B. Jetpack Compose oder Flutter) – Oberfläche muss neu gestaltet werden")
             add("${strings.size} Texte übernommen, ${images.size + ctx.svgs.size} Bilder übernommen (davon ${ctx.svgs.size} Vektorgrafiken umgewandelt)")
             add("Programmlogik nicht übernommen (${activities.size} Android-Aktivitäten) – muss nachprogrammiert werden")
@@ -107,7 +110,7 @@ object DraftGenerator {
         .split('_').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
 
     /** Wandelt einen Android-Layout-Baum in HTML um. */
-    private class Ctx(val apk: File, val res: ResourceTable, val images: LinkedHashMap<String, String>) {
+    private class Ctx(val apk: ApkSet, val res: ResourceTable, val images: LinkedHashMap<String, String>) {
 
         fun text(a: BinaryXmlTree.Attr?): String? = when {
             a == null -> null
@@ -135,7 +138,7 @@ object DraftGenerator {
             val xmlFile = files.firstOrNull { it.endsWith(".xml") } ?: return null
             val target = "bilder/" + xmlFile.substringAfterLast('/').removeSuffix(".xml") + ".svg"
             if (target in svgs) return target
-            val svg = Zip.entry(apk, xmlFile)?.let { BinaryXmlTree.parse(it) }?.let { VectorToSvg.convert(it, res) } ?: return null
+            val svg = apk.entry(xmlFile)?.let { BinaryXmlTree.parse(it) }?.let { VectorToSvg.convert(it, res) } ?: return null
             svgs[target] = svg
             return target
         }
@@ -153,7 +156,7 @@ object DraftGenerator {
             val hint = esc(text(n.attrs["hint"]) ?: "")
             when {
                 tag == "include" -> n.attrs["layout"]?.takeIf { it.type == ResourceTable.TYPE_REFERENCE }?.let { ref ->
-                    res.files(ref.data).firstOrNull()?.let { f -> Zip.entry(apk, f)?.let { BinaryXmlTree.parse(it) }?.let { render(it, sb, depth + 1) } }
+                    res.files(ref.data).firstOrNull()?.let { f -> apk.entry(f)?.let { BinaryXmlTree.parse(it) }?.let { render(it, sb, depth + 1) } }
                 }
                 tag == "merge" -> n.children.forEach { render(it, sb, depth + 1) }
                 tag.endsWith("Button") && !tag.contains("Radio") && !tag.contains("Toggle") || tag == "FloatingActionButton" || tag == "Chip" -> {
@@ -361,4 +364,15 @@ internal object VectorToSvg {
         val mult = floatArrayOf(1f / (1 shl 0), 1f / (1 shl 7), 1f / (1 shl 15), 1f / (1 shl 23))[radix]
         return mantissa * mult
     }
+}
+
+/** Eine App aus Basis-APK und Teil-APKs (Splits): Dateien werden zuerst in der Basis, dann in den Teilen gesucht. */
+internal class ApkSet(val parts: List<File>) {
+    private val index: Map<String, File> by lazy {
+        val m = LinkedHashMap<String, File>()
+        for (p in parts) runCatching { Zip.names(p) }.getOrDefault(emptyList()).forEach { n -> m.putIfAbsent(n, p) }
+        m
+    }
+    fun names(): List<String> = index.keys.toList()
+    fun entry(name: String): ByteArray? = index[name]?.let { Zip.entry(it, name) }
 }
