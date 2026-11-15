@@ -107,6 +107,16 @@ class MainActivity : ComponentActivity() {
     private val controller get() = (application as TvTransferApp).controller
     private var showAppPicker by mutableStateOf(false)
 
+    private val saveWgt = registerForActivityResult(ActivityResultContracts.CreateDocument("application/widget")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        controller.exportWgt(File(cacheDir, "dateien/export")) { f ->
+            runCatching {
+                contentResolver.openOutputStream(uri)!!.use { out -> f.inputStream().use { it.copyTo(out) } }
+                controller.setExportLocation(uri.lastPathSegment?.substringAfterLast(':') ?: uri.toString())
+            }.onFailure { controller.log("Speichern fehlgeschlagen: ${it.message}") }
+        }
+    }
+
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importUri(uri)
     }
@@ -118,8 +128,9 @@ class MainActivity : ComponentActivity() {
             override fun pickFile() = openDocument.launch(arrayOf("*/*"))
             override val pickInstalledApp: (() -> Unit) = { showAppPicker = true }
             override fun exportWgt() {
-                val dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
-                controller.exportWgt(dir)
+                // Speicherort wählen lassen (z. B. Downloads), danach konvertieren und dorthin kopieren
+                val name = controller.state.value.appName.filter { it.isLetterOrDigit() || it in " -_" }.ifBlank { "App" } + ".wgt"
+                saveWgt.launch(name)
             }
             override val dropHint = "Tippen, um eine Datei zu wählen"
         }

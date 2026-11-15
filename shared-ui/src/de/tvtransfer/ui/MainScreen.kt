@@ -225,6 +225,7 @@ private fun SourceCard(s: UiState, c: TransferController, host: UiHost, dropHigh
         Text("${a.framework}${a.packageName?.let { " · $it" } ?: ""}${a.versionName?.let { " · Version $it" } ?: ""}", color = Brand.muted, fontSize = 12.sp)
         Text(a.verdict, color = Brand.text, fontSize = 14.sp)
         a.notes.forEach { Text("• $it", color = Brand.muted, fontSize = 13.sp) }
+        if (a.findings.isNotEmpty()) AnalysisReport(a.findings)
         if (a.canConvert) {
             OutlinedTextField(value = s.appName, onValueChange = c::setAppName, singleLine = true, label = { Text("Name auf dem Fernseher") }, modifier = Modifier.fillMaxWidth())
         }
@@ -349,7 +350,7 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.ok, contentColor = Brand.bg),
             ) { Text(label, fontWeight = FontWeight.Bold) }
             if (s.analysis?.canConvert == true && s.analysis?.type != SourceType.TIZEN_PACKAGE)
-                OutlinedButton(onClick = host::exportWgt, enabled = !s.busy) { Text("Nur als .wgt speichern") }
+                OutlinedButton(onClick = host::exportWgt, enabled = !s.busy) { Text("Konvertieren (.wgt speichern)") }
         }
         if (s.busy) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -364,6 +365,38 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
         if (s.waitingForStickConfirm) Message("Bitte jetzt am Fernseher \"USB-Debugging zulassen\" bestätigen.", Brand.warn)
         s.error?.let { Message(it, Brand.bad) }
         s.success?.let { Message(it, Brand.ok) }
+    }
+}
+
+/** Aufklappbarer Analysebericht: jeder Bestandteil der App mit Bewertung für Samsung-TV. */
+@Composable
+private fun AnalysisReport(findings: List<de.tvtransfer.convert.Finding>) {
+    var open by remember(findings) { mutableStateOf(findings.any { it.status == de.tvtransfer.convert.Portability.BLOCKER }) }
+    val blockers = findings.count { it.status == de.tvtransfer.convert.Portability.BLOCKER }
+    val limited = findings.count { it.status == de.tvtransfer.convert.Portability.LIMITED }
+    TextButton(onClick = { open = !open }) {
+        Text((if (open) "▴ " else "▾ ") + "Analysebericht (${findings.size} Punkte" +
+            (if (blockers > 0) ", $blockers nicht portierbar" else "") + (if (limited > 0) ", $limited eingeschränkt" else "") + ")")
+    }
+    if (!open) return
+    findings.groupBy { it.area }.forEach { (area, list) ->
+        Text(area, color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        list.forEach { f ->
+            val color = when (f.status) {
+                de.tvtransfer.convert.Portability.OK -> Brand.ok
+                de.tvtransfer.convert.Portability.LIMITED -> Brand.warn
+                de.tvtransfer.convert.Portability.BLOCKER -> Brand.bad
+                de.tvtransfer.convert.Portability.INFO -> Brand.muted
+            }
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 2.dp)) {
+                Box(Modifier.padding(top = 5.dp).size(8.dp).background(color, RoundedCornerShape(50)))
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text("${f.title} – ${f.status.label}", color = Brand.text, fontSize = 13.sp)
+                    if (f.detail.isNotBlank()) Text(f.detail, color = Brand.muted, fontSize = 12.sp)
+                }
+            }
+        }
     }
 }
 

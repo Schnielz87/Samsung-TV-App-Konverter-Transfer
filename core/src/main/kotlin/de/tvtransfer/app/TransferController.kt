@@ -5,6 +5,8 @@ import de.tvtransfer.convert.Analysis
 import de.tvtransfer.convert.Analyzer
 import de.tvtransfer.convert.SourceType
 import de.tvtransfer.convert.TizenCounterparts
+import de.tvtransfer.convert.Validator
+import de.tvtransfer.convert.Portability
 import de.tvtransfer.convert.WgtBuilder
 import de.tvtransfer.convert.WgtOptions
 import de.tvtransfer.net.DeviceKind
@@ -78,6 +80,8 @@ data class UiState(
     val waitingForStickConfirm: Boolean = false,
     val ownAddresses: List<String> = emptyList(),
     val lastWgt: File? = null,
+    /** Anzeigename des Speicherorts (Android: vom Nutzer gewählter Ort). */
+    val lastWgtLocation: String? = null,
     val appVersion: String = "",
     val update: ReleaseInfo? = null,
     val updateStatus: String? = null,
@@ -266,6 +270,7 @@ class TransferController(private val platform: Platform) {
         log("Datei: ${a.displayName} – ${a.framework}")
     }
 
+    fun setExportLocation(name: String?) = _state.update { it.copy(lastWgtLocation = name) }
     fun setAppName(name: String) = _state.update { it.copy(appName = name) }
     fun chooseUrl(url: String) = _state.update { it.copy(chosenUrl = url) }
     fun setModel(m: TvModel) = _state.update { it.copy(model = m, modelAutoDetected = false) }.also { saveSettings() }
@@ -380,17 +385,54 @@ class TransferController(private val platform: Platform) {
     }
 
     /** Erzeugt nur die .wgt-Datei (zum Weitergeben oder für USB). */
-    fun exportWgt(targetDir: File) = requireTerms { doExportWgt(targetDir) }
+    /** @param onDone erhält die fertige .wgt-Datei (z. B. um sie unter Android an den gewählten Speicherort zu kopieren). */
+    fun exportWgt(targetDir: File, onDone: (File) -> Unit = {}) = requireTerms { doExportWgt(targetDir, onDone) }
 
-    private fun doExportWgt(targetDir: File) = run("Erzeuge Samsung-App …") {
+    /**
+     * Konverter-Ablauf ohne Fernseher: Quelle → analysieren → Samsung-App erzeugen → prüfen → (signieren) → .wgt speichern.
+     * Signiert wird mit dem vorhandenen Samsung-Zertifikat; ohne Zertifikat entsteht ein unsigniertes Paket,
+     * das beim Installieren über dieses Programm automatisch signiert wird.
+     */
+    private fun doExportWgt(targetDir: File, onDone: (File) -> Unit) = run("Konvertiere …") {
         val s = _state.value
         val a = s.analysis ?: return@run fail("Keine Quelle gewählt.")
         if (!a.canConvert) return@run fail(a.verdict)
         val src = resolveSamsungVersion(a)
-        val built = WgtBuilder.build(src, WgtOptions(s.appName, src.versionName ?: "1.0.0", s.model, s.chosenUrl))
-        val f = WgtBuilder.save(built, targetDir, s.appName)
+        status("Erzeuge Samsung-App …")
+        val built = WgtBuilder.build(src, WgtOptions(s.appName.ifBlank { src.displayName }, src.versionName ?: "1.0.0", s.model, s.chosenUrl))
+        val check = validateOrFail(built.wgt, src) ?: return@run
+        val out = if (certs.hasCertificate) {
+            status("Signiere …")
+            WgtBuilder.Result(WidgetSigner.sign(built.wgt, certs.author(), certs.distributor()), built.packageId, built.appId)
+        } else built
+        val f = WgtBuilder.save(out, targetDir, s.appName.ifBlank { src.displayName })
         _state.update { it.copy(lastWgt = f) }
-        succeed("Gespeichert: ${f.absolutePath} (noch nicht signiert – wird beim Installieren automatisch signiert).")
+        onDone(f)
+        val signInfo = if (certs.hasCertificate) "Signiert mit Ihrem Samsung-Zertifikat – installierbar auf Ihren freigegebenen Fernsehern (${certs.duids.size})."
+        else "Noch nicht signiert – wird beim Installieren über dieses Programm automatisch signiert."
+        succeed("Konvertiert" + limitationsText(check) + ".\nGespeichert: ${_state.value.lastWgtLocation ?: f.absolutePath}\n$signInfo")
+    }
+
+    /** Prüft das erzeugte Paket. Bei schweren Fehlern: Abbruch mit konkreter Begründung (null). */
+    private fun validateOrFail(wgt: ByteArray, a: Analysis): Validator.Result? {
+        if (a.source?.name?.lowercase()?.endsWith(".tpk") == true) return Validator.Result(emptyList())
+        status("Prüfe Samsung-App …")
+        val r = Validator.validate(wgt)
+        r.findings.filter { it.status != Portability.OK }.forEach { log("Prüfung: ${it.status.label} – ${it.title}") }
+        if (!r.ok) {
+            fail("Konvertierung nicht erfolgreich – das erzeugte Paket wäre nicht funktionsfähig:\n" +
+                r.blockers().joinToString("\n") { "• ${it.title}${if (it.detail.isNotBlank()) " (${it.detail})" else ""}" })
+            return null
+        }
+        log("Prüfung bestanden.")
+        return r
+    }
+
+    /** Hinweis auf Einschränkungen (Analyse + Prüfung), damit nichts als "voll funktionsfähig" erscheint, was es nicht ist. */
+    private fun limitationsText(check: Validator.Result?): String {
+        val lim = (_state.value.analysis?.findings.orEmpty() + check?.findings.orEmpty())
+            .filter { it.status == Portability.LIMITED }.map { it.title }.distinct()
+        return if (lim.isEmpty()) "" else " – mit Einschränkungen: ${lim.take(4).joinToString("; ")}${if (lim.size > 4) " …" else ""}"
     }
 
     /** Bei Apps mit eigener Samsung-Version: diese laden und wie eine Tizen-App weiterverarbeiten. */
@@ -409,6 +451,7 @@ class TransferController(private val platform: Platform) {
         val built = WgtBuilder.build(a, WgtOptions(s.appName.ifBlank { a.displayName }, a.versionName ?: "1.0.0", s.model, s.chosenUrl))
         val isWgt = a.source?.name?.lowercase()?.endsWith(".tpk") != true
         log("Paket ${built.packageId} (${built.wgt.size / 1024} KB) erstellt.")
+        val check = validateOrFail(built.wgt, a) ?: return
         if (s.model.note.isNotBlank() && s.model.chromium < 60 && a.type != SourceType.TIZEN_PACKAGE) log("Hinweis: ${s.model.note}")
 
         status("Verbinde mit dem Fernseher …")
@@ -440,7 +483,8 @@ class TransferController(private val platform: Platform) {
             val res = SamsungTv.install(conn, signed, isWgt, ::log, { sent, total -> progress(sent, total) }, profile)
             if (res.success) {
                 runCatching { if (built.appId.isNotEmpty()) SamsungTv.launch(conn, built.appId) }
-                succeed("\"${s.appName.ifBlank { a.displayName }}\" ist auf dem Fernseher installiert. Sie finden die App unter Apps (ganz unten bzw. in der App-Leiste).")
+                succeed("\"${s.appName.ifBlank { a.displayName }}\" ist auf dem Fernseher installiert" + limitationsText(check) +
+                    ". Sie finden die App unter Apps (ganz unten bzw. in der App-Leiste).")
             } else {
                 fail(res.message + if (res.rawOutput.isNotBlank()) "\n\nAntwort des Fernsehers: ${res.rawOutput.trim().takeLast(400)}" else "")
             }

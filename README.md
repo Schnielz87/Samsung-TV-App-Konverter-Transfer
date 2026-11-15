@@ -117,6 +117,33 @@ installieren, müssen Sie die IP dort jeweils umstellen.
    Beim Samsung-Fernseher wird das **Modelljahr** automatisch erkannt. Sie können es auch selbst wählen (2017 bis 2026).
 3. Klicken Sie auf **Übertragen**. Das Programm wandelt die Datei um, signiert sie, überträgt sie und installiert sie.
 
+### Der Konverter: so arbeitet er
+
+Für Sie läuft es wie bei einem Dateikonverter ab: **Datei wählen → Konvertieren → Samsung-App (.wgt) erhalten → optional
+direkt auf den eigenen Fernseher installieren**. Kenntnisse über Tizen Studio, config.xml oder Signaturen brauchen Sie nicht.
+
+Im Hintergrund durchläuft jede Datei diese Schritte:
+
+1. **Erkennen und entpacken:** APK, APK-Bündel (.apks/.xapk), Tizen-App oder Webadresse.
+2. **Analysieren:** Architektur, Oberfläche, Ressourcen, Web-Inhalte, Netzwerk, Medien, Schnittstellen und Abhängigkeiten.
+   Das Ergebnis sehen Sie im **Analysebericht**. Jeder Punkt ist dort markiert als *übertragbar* (grün),
+   *eingeschränkt* (gelb) oder *nicht portierbar* (rot).
+3. **Übernehmen und anpassen:** Kompatible Bestandteile (Web-Inhalte, Symbol, Internetzugriff) werden übernommen. Für die
+   Samsung-Fernbedienung wird eine Steuerungshilfe ergänzt (Pfeiltasten, OK, Zurück).
+4. **Erzeugen:** config.xml, App-ID, Symbol, Berechtigungen und Metadaten.
+5. **Prüfen:** Das Paket wird vor dem Signieren geprüft, etwa auf eine gültige config.xml, die Startseite und eingebundene Dateien.
+6. **Signieren:** mit Ihrem Samsung-Entwicklerzertifikat (offizielle Samsung-Zertifizierungsstelle).
+7. **Installieren** (optional) über den Samsung-Entwicklermodus inklusive Installationsfreigabe.
+
+**Keine falschen Erfolgsmeldungen:** Lässt sich eine App nicht automatisch portieren, nennt das Programm den konkreten
+Grund. Ein Beispiel: „Konvertierung nicht möglich: Die App verwendet Android-Bestandteile ohne Tizen-TV-Entsprechung
+(Media3/ExoPlayer; Google-Play-Dienste)“. Ein Paket, das die Prüfung nicht besteht, wird nie als „erfolgreich konvertiert“
+ausgegeben. Funktionieren Teile nur eingeschränkt, steht das ausdrücklich in der Erfolgsmeldung.
+
+Hinweis zur Technik: Das Programm baut und signiert die Pakete selbst, im selben Format wie Samsungs Tizen Studio. Das
+offizielle Tizen Studio (mehrere GB, nur für PCs) wird dafür nicht benötigt. Die Installation läuft über Samsungs
+Entwicklermodus.
+
 ### Samsung-Zertifikat
 
 Samsung-Fernseher installieren im Entwicklermodus nur Apps, die mit einem **Samsung-Entwicklerzertifikat** signiert sind.

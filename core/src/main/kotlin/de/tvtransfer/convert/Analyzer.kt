@@ -47,6 +47,8 @@ data class Analysis(
     val apkParts: List<File> = listOfNotNull(source),
     /** Eigene Samsung-Version dieser App (bei [SourceType.SAMSUNG_VERSION]). */
     val counterpart: TizenCounterpart? = null,
+    /** Analysebericht: Bestandteile der App und ihre Portierbarkeit auf Samsung-TV. */
+    val findings: List<Finding> = emptyList(),
 ) {
     val canConvert: Boolean get() = type.convertible && (type != SourceType.WEBVIEW_WRAPPER || urls.isNotEmpty())
 }
@@ -104,7 +106,33 @@ object Analyzer {
         )
     }
 
+    /** Analysiert eine APK und ergänzt den detaillierten Analysebericht (Inspector). */
     private fun analyzeApk(file: File, labelHint: String?, parts: List<File>?): Analysis {
+        val a = analyzeApkType(file, labelHint, parts)
+        val src = a.source ?: return a
+        if (a.type == SourceType.UNKNOWN) return a
+        val names = runCatching { Zip.names(src) }.getOrDefault(emptyList())
+        val manifest = runCatching { BinaryXml.parse(Zip.entry(src, "AndroidManifest.xml")!!) }.getOrDefault(emptyList())
+        if (a.type == SourceType.SAMSUNG_VERSION) {
+            return a.copy(findings = listOf(Finding("Konverter", "Eigene Samsung-Fassung von ${a.counterpart?.name} vorhanden", Portability.OK,
+                "Statt den Android-Code zu übersetzen, wird die eigens für Samsung-TV programmierte Fassung verwendet.")))
+        }
+        val wrapper = a.type == SourceType.WEBVIEW_WRAPPER
+        val findings = (if (wrapper) listOf(Finding("Konverter", "Webadresse wird als TV-App übernommen: ${a.urls.firstOrNull() ?: "–"}", Portability.OK,
+            "Nur die Webseite wird übernommen, nicht der Android-Code der App.")) else emptyList()) +
+            Inspector.inspectApk(src, names, manifest, a.webRoot, webBased = a.webRoot != null || wrapper)
+        if (a.type == SourceType.NATIVE_ANDROID) {
+            val blockers = Inspector.blockerSummary(findings)
+            return a.copy(
+                findings = findings,
+                verdict = "Konvertierung nicht möglich: Die App verwendet Android-Bestandteile ohne Tizen-TV-Entsprechung" +
+                    (if (blockers.isNotEmpty()) " ($blockers)" else "") + ". " + a.verdict.removePrefix("Nicht umwandelbar: "),
+            )
+        }
+        return a.copy(findings = findings)
+    }
+
+    private fun analyzeApkType(file: File, labelHint: String?, parts: List<File>?): Analysis {
         val names = runCatching { Zip.names(file) }.getOrElse {
             return Analysis(file, SourceType.UNKNOWN, file.name, null, null, "–", "Die Datei ist beschädigt oder keine gültige APK.")
         }
@@ -116,7 +144,7 @@ object Analyzer {
                 val dir = File(tempDir, file.nameWithoutExtension.hashCode().toString()).apply { mkdirs() }
                 val extracted = inner.map { n -> File(dir, n.substringAfterLast('/')).also { it.writeBytes(Zip.entry(file, n)!!) } }
                 val base = extracted.firstOrNull { it.name == "base.apk" } ?: extracted.maxBy { it.length() }
-                return analyzeApk(base, labelHint, listOf(base) + (extracted - base))
+                return analyzeApkType(base, labelHint, listOf(base) + (extracted - base))
             }
             return Analysis(file, SourceType.UNKNOWN, file.name, null, null, "–", "Keine gültige APK (AndroidManifest.xml fehlt).")
         }

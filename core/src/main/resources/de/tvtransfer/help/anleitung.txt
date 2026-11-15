@@ -18,6 +18,10 @@ Werbe- oder Tracking-Filter (Privates DNS, AdGuard, Pi-hole) können die Samsung
 4. "Auf den Samsung-Fernseher übertragen" drücken. Beim ersten Mal öffnet sich die Samsung-Anmeldung – anmelden, zurück zur App, warten.
 5. Fertig, wenn "ist auf dem Fernseher installiert" erscheint. Die App finden Sie am Fernseher unter Apps (ganz unten / in der App-Leiste).
 
+# Nur konvertieren (ohne Fernseher)
+Datei wählen und "Konvertieren (.wgt speichern)" tippen. Sie erhalten eine fertige Samsung-App-Datei. Ist bereits ein Samsung-Zertifikat vorhanden, ist sie signiert und auf Ihren freigegebenen Fernsehern installierbar.
+Im Analysebericht sehen Sie, welche Teile der App übertragbar (grün), eingeschränkt (gelb) oder nicht portierbar (rot) sind.
+
 # Android-Stick (Fire TV, Google TV) statt Samsung
 Für Apps, die nicht umwandelbar sind: Am Stick Einstellungen → Mein Fire TV → Info → 7× auf den Namen tippen → Entwickleroptionen → ADB-Debugging EIN.
 In der App "Im WLAN suchen", den Android-Stick wählen, übertragen. Am Fernseher "USB-Debugging zulassen" mit "Immer zulassen" bestätigen.

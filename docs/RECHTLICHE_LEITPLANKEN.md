@@ -24,6 +24,7 @@ Fehlermeldungen, Dokumentation und Vermarktung.
 | 7 | Keine Markenverwechslung, Markenhinweis. | Name „TV-App-Transfer“. „Samsung“ nur beschreibend. `Legal.TRADEMARK_NOTICE` steht in der App und im README. |
 | 8 | Fremde Software nur so weit verändern, wie es technisch nötig ist. Keine Rechtehinweise entfernen. | Ergänzt werden nur `config.xml`, `tv-bridge.js`, der Ersatz für `cordova.js` und das Symbol. Lizenz- und Copyright-Dateien bleiben erhalten. |
 | 9 | Keine Übertragung von App-Namen oder Dateien, keine Telemetrie ohne Transparenz. | Es gibt keine Telemetrie. Externe Verbindungen sind in `legal/datenschutz.txt` dokumentiert. |
+| 11 | Keine falschen Erfolgsmeldungen | `Inspector` (Analysebericht mit konkreten Blockern), `Validator` (Prüfung vor dem Signieren). Rote Befunde führen zum Abbruch, gelbe stehen in der Erfolgsmeldung. |
 | 10 | Vor jeder neuen Funktion prüfen: Kompatibilität oder Umgehung? Im Zweifel **LEGAL_REVIEW_REQUIRED**. | Siehe Liste unten. |
 
 ## LEGAL_REVIEW_REQUIRED (vor Vermarktung anwaltlich prüfen lassen)
