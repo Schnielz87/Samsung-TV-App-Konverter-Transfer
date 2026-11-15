@@ -40,5 +40,10 @@ Fehlermeldungen, Dokumentation und Vermarktung.
 4. **Repository- und Produktname:** Der Repo-Name „Samsung-TV-App-Konverter-Transfer“ enthält die Marke prominent. Für
    die Vermarktung sollte ein neutraler Name verwendet werden (wie „TV-App-Transfer“).
 5. **Höhere Samsung-Berechtigungsstufe („Partner“):** Sie ist bewusst nicht aktiv und darf nur nach Prüfung verwendet werden.
+7. **Entwurf-Konverter (`DraftGenerator`):** Er liest Oberfläche, Texte und Bilder einer vom Nutzer bereitgestellten APK aus
+   und baut sie als TV-Entwurf nach. Das ist nur für Apps gedacht, an denen der Nutzer die Rechte hat; der Hinweis steht in
+   der App, und die Rechte-Bestätigung gilt. Geschützte Apps sind ausgeschlossen, Rechtehinweise werden nicht entfernt.
+   Vor einer Vermarktung prüfen lassen, ob der Nachbau fremder Oberflächen (Design- und Urheberrecht) gesondert
+   eingeschränkt werden muss.
 6. **Anbieterangaben, Impressum und Datenschutzerklärung:** Die Felder in `core/.../app/Legal.kt` (`AppInfo`) müssen
    ausgefüllt und die Texte vor Veröffentlichung geprüft werden.

@@ -144,6 +144,24 @@ Hinweis zur Technik: Das Programm baut und signiert die Pakete selbst, im selben
 offizielle Tizen Studio (mehrere GB, nur für PCs) wird dafür nicht benötigt. Die Installation läuft über Samsungs
 Entwicklermodus.
 
+### Entwurf-Konverter für normale Android-Apps
+
+Bei Apps, die sich nicht direkt umwandeln lassen (roter Punkt), bietet das Programm den **Entwurf-Konverter** an.
+Mit **„Als Entwurf konvertieren (.wgt)“** oder **„Entwurf auf den Fernseher“** wird die APK zerlegt:
+
+- **Ausgelesen und übernommen:** App-Name, Symbol, Farben, alle Texte, Bilder (auch Android-Vektorgrafiken, als SVG umgewandelt)
+  und die Bildschirme (Android-Layouts mit Knöpfen, Texten, Eingabefeldern, Listen, Navigation …).
+- **Daraus erzeugt:** eine Samsung-TV-App, die die Bildschirme nachbildet, mit Seitennavigation und Fernbedienungssteuerung.
+- **Nicht übernommen:** die Programmlogik (Wiedergabe, Anmeldung, Daten laden, was beim Tippen passiert). Sie steckt im
+  Android-Programmcode und muss für Tizen nachprogrammiert werden. Knöpfe im Entwurf zeigen deshalb den Hinweis
+  „muss noch nachprogrammiert werden“.
+- **Bericht in der App** (Knopf „Bericht“) und `entwurf.json` im Paket: Bildschirme, Android-Aktivitäten, gefundene
+  Webadressen und Schnittstellen sowie alle Texte als Grundlage für die Nachbearbeitung.
+
+Apps, deren Oberfläche im Code statt in Layouts beschrieben ist (Jetpack Compose, Flutter), liefern kaum Bildschirme.
+Apps mit Lizenz- oder Kopierschutz werden nicht verarbeitet. Nutzen Sie den Entwurf-Konverter nur für Apps, an denen Sie
+die Rechte haben (z. B. Ihre eigenen).
+
 ### Samsung-Zertifikat
 
 Samsung-Fernseher installieren im Entwicklermodus nur Apps, die mit einem **Samsung-Entwicklerzertifikat** signiert sind.

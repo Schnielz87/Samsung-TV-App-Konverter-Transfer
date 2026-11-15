@@ -69,8 +69,8 @@ interface UiHost {
     fun pickFile()
     /** Installierte App vom Handy wählen – nur Android, sonst null. */
     val pickInstalledApp: (() -> Unit)?
-    /** Ordner für "Als .wgt speichern". */
-    fun exportWgt()
+    /** Ordner/Speicherort für "Konvertieren (.wgt speichern)"; [draft] = Entwurf aus Android-App. */
+    fun exportWgt(draft: Boolean = false)
     /** Hinweis im Ablagebereich (z. B. "Datei hierher ziehen"). */
     val dropHint: String
 }
@@ -226,6 +226,7 @@ private fun SourceCard(s: UiState, c: TransferController, host: UiHost, dropHigh
         Text(a.verdict, color = Brand.text, fontSize = 14.sp)
         a.notes.forEach { Text("• $it", color = Brand.muted, fontSize = 13.sp) }
         if (a.findings.isNotEmpty()) AnalysisReport(a.findings)
+        if (a.canDraft) DraftBox(s, c, host)
         if (a.canConvert) {
             OutlinedTextField(value = s.appName, onValueChange = c::setAppName, singleLine = true, label = { Text("Name auf dem Fernseher") }, modifier = Modifier.fillMaxWidth())
         }
@@ -350,7 +351,7 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.ok, contentColor = Brand.bg),
             ) { Text(label, fontWeight = FontWeight.Bold) }
             if (s.analysis?.canConvert == true && s.analysis?.type != SourceType.TIZEN_PACKAGE)
-                OutlinedButton(onClick = host::exportWgt, enabled = !s.busy) { Text("Konvertieren (.wgt speichern)") }
+                OutlinedButton(onClick = { host.exportWgt(false) }, enabled = !s.busy) { Text("Konvertieren (.wgt speichern)") }
         }
         if (s.busy) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -365,6 +366,29 @@ private fun ActionCard(s: UiState, c: TransferController, host: UiHost) {
         if (s.waitingForStickConfirm) Message("Bitte jetzt am Fernseher \"USB-Debugging zulassen\" bestätigen.", Brand.warn)
         s.error?.let { Message(it, Brand.bad) }
         s.success?.let { Message(it, Brand.ok) }
+    }
+}
+
+/** Entwurf-Konverter für echte Android-Apps: Oberfläche nachbauen, Logik muss nachprogrammiert werden. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DraftBox(s: UiState, c: TransferController, host: UiHost) {
+    Surface(color = Brand.warn.copy(alpha = 0.08f), border = BorderStroke(1.dp, Brand.warn), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Entwurf-Konverter", color = Brand.text, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Die App wird zerlegt: Bildschirme, Texte, Farben, Bilder und Symbol werden ausgelesen und als Samsung-TV-App nachgebaut " +
+                    "(mit Fernbedienungssteuerung). Die Programmlogik (Wiedergabe, Anmeldung, Daten laden …) steckt im Android-Code und " +
+                    "kann nicht übernommen werden – der Entwurf zeigt die Oberfläche, Funktionen müssen nachprogrammiert werden. " +
+                    "Ein Bericht in der App listet genau auf, was fehlt. Nur für Apps verwenden, an denen Sie die Rechte haben (z. B. eigene Apps).",
+                color = Brand.muted, fontSize = 12.sp,
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { host.exportWgt(true) }, enabled = !s.busy) { Text("Als Entwurf konvertieren (.wgt)") }
+                if (s.selected?.kind == DeviceKind.SAMSUNG_TV)
+                    OutlinedButton(onClick = c::transferDraft, enabled = !s.busy) { Text("Entwurf auf den Fernseher") }
+            }
+        }
     }
 }
 

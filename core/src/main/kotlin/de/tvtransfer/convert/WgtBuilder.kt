@@ -20,6 +20,13 @@ object WgtBuilder {
 
     data class Result(val wgt: ByteArray, val packageId: String, val appId: String)
 
+    /** Entwurf aus einer echten Android-App (siehe [DraftGenerator]). */
+    fun buildDraft(analysis: Analysis, options: WgtOptions): Pair<Result, DraftGenerator.Draft> {
+        val draft = DraftGenerator.generate(analysis.source!!, analysis)
+        val result = fromWebFiles(draft.files, "index.html", options, seed = "draft:" + (analysis.packageName ?: analysis.displayName), icon = analysis.icon, cordova = false)
+        return result to draft
+    }
+
     fun build(analysis: Analysis, options: WgtOptions): Result = when (analysis.type) {
         SourceType.WEB_APP_IN_APK -> fromWebFiles(
             Zip.subtree(analysis.source!!, analysis.webRoot!!), analysis.startPage, options,

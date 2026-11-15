@@ -365,16 +365,21 @@ class TransferController(private val platform: Platform) {
     // ------------------------------------------------------------------ Übertragen
 
     /** Hauptfunktion: umwandeln (falls nötig) und auf das gewählte Gerät bringen. */
-    fun transfer() = requireTerms { doTransfer() }
+    fun transfer() = requireTerms { doTransfer(draft = false) }
 
-    private fun doTransfer() {
+    /** Entwurf-Konverter: Oberfläche einer echten Android-App nachbauen und auf den Fernseher bringen. */
+    fun transferDraft() = requireTerms { doTransfer(draft = true) }
+
+    private fun doTransfer(draft: Boolean) {
         val s = _state.value
         val device = s.selected ?: return fail("Bitte zuerst ein Zielgerät wählen (Suchen oder IP eingeben).")
         val a = s.analysis ?: return fail("Bitte zuerst eine Datei, eine App oder eine Webadresse wählen.")
         when (device.kind) {
             DeviceKind.SAMSUNG_TV -> {
-                if (!a.canConvert) return fail(a.verdict)
-                run("Wandle um …") { transferToSamsung(device, a) }
+                if (draft) {
+                    if (!a.canDraft) return fail("Für diese Datei ist kein Entwurf möglich.")
+                } else if (!a.canConvert) return fail(a.verdict)
+                run(if (draft) "Erzeuge Entwurf …" else "Wandle um …") { transferToSamsung(device, a, draft) }
             }
             DeviceKind.ANDROID_STICK -> {
                 if (a.type == SourceType.WEBSITE || a.type == SourceType.TIZEN_PACKAGE || a.apkParts.isEmpty())
@@ -386,20 +391,35 @@ class TransferController(private val platform: Platform) {
 
     /** Erzeugt nur die .wgt-Datei (zum Weitergeben oder für USB). */
     /** @param onDone erhält die fertige .wgt-Datei (z. B. um sie unter Android an den gewählten Speicherort zu kopieren). */
-    fun exportWgt(targetDir: File, onDone: (File) -> Unit = {}) = requireTerms { doExportWgt(targetDir, onDone) }
+    fun exportWgt(targetDir: File, onDone: (File) -> Unit = {}) = requireTerms { doExportWgt(targetDir, onDone, draft = false) }
+
+    /** Entwurf als .wgt speichern. */
+    fun exportDraft(targetDir: File, onDone: (File) -> Unit = {}) = requireTerms { doExportWgt(targetDir, onDone, draft = true) }
+
+    /** Baut die Samsung-App – normal oder als Entwurf (Oberfläche aus Android-Layouts, ohne Programmlogik). */
+    private fun buildFor(a: Analysis, draft: Boolean): WgtBuilder.Result {
+        val s = _state.value
+        val options = WgtOptions(s.appName.ifBlank { a.displayName }, a.versionName ?: "1.0.0", s.model, s.chosenUrl)
+        if (!draft) return WgtBuilder.build(a, options)
+        status("Zerlege die Android-App und baue die Oberfläche nach …")
+        val (result, d) = WgtBuilder.buildDraft(a, options)
+        d.summary.forEach { log("Entwurf: $it") }
+        return result
+    }
 
     /**
      * Konverter-Ablauf ohne Fernseher: Quelle → analysieren → Samsung-App erzeugen → prüfen → (signieren) → .wgt speichern.
      * Signiert wird mit dem vorhandenen Samsung-Zertifikat; ohne Zertifikat entsteht ein unsigniertes Paket,
      * das beim Installieren über dieses Programm automatisch signiert wird.
      */
-    private fun doExportWgt(targetDir: File, onDone: (File) -> Unit) = run("Konvertiere …") {
+    private fun doExportWgt(targetDir: File, onDone: (File) -> Unit, draft: Boolean) = run("Konvertiere …") {
         val s = _state.value
         val a = s.analysis ?: return@run fail("Keine Quelle gewählt.")
-        if (!a.canConvert) return@run fail(a.verdict)
-        val src = resolveSamsungVersion(a)
+        if (draft) { if (!a.canDraft) return@run fail("Für diese Datei ist kein Entwurf möglich.") }
+        else if (!a.canConvert) return@run fail(a.verdict)
+        val src = if (draft) a else resolveSamsungVersion(a)
         status("Erzeuge Samsung-App …")
-        val built = WgtBuilder.build(src, WgtOptions(s.appName.ifBlank { src.displayName }, src.versionName ?: "1.0.0", s.model, s.chosenUrl))
+        val built = buildFor(src, draft)
         val check = validateOrFail(built.wgt, src) ?: return@run
         val out = if (certs.hasCertificate) {
             status("Signiere …")
@@ -410,7 +430,7 @@ class TransferController(private val platform: Platform) {
         onDone(f)
         val signInfo = if (certs.hasCertificate) "Signiert mit Ihrem Samsung-Zertifikat – installierbar auf Ihren freigegebenen Fernsehern (${certs.duids.size})."
         else "Noch nicht signiert – wird beim Installieren über dieses Programm automatisch signiert."
-        succeed("Konvertiert" + limitationsText(check) + ".\nGespeichert: ${_state.value.lastWgtLocation ?: f.absolutePath}\n$signInfo")
+        succeed((if (draft) "Entwurf erzeugt (Oberfläche nachgebaut – Funktionen müssen nachprogrammiert werden, siehe „Bericht“ in der App)" else "Konvertiert" + limitationsText(check)) + ".\nGespeichert: ${_state.value.lastWgtLocation ?: f.absolutePath}\n$signInfo")
     }
 
     /** Prüft das erzeugte Paket. Bei schweren Fehlern: Abbruch mit konkreter Begründung (null). */
@@ -442,13 +462,13 @@ class TransferController(private val platform: Platform) {
         return Analyzer.analyze(f).copy(displayName = a.displayName)
     }
 
-    private fun transferToSamsung(device: FoundDevice, original: Analysis) {
+    private fun transferToSamsung(device: FoundDevice, original: Analysis, draft: Boolean = false) {
         // zuerst prüfen, ob der Fernseher uns hereinlässt – erst dann herunterladen/umwandeln
         connectTv(device.host).close()
-        val a = resolveSamsungVersion(original)
+        val a = if (draft) original else resolveSamsungVersion(original)
         val s = _state.value
         status("Erzeuge Samsung-App …")
-        val built = WgtBuilder.build(a, WgtOptions(s.appName.ifBlank { a.displayName }, a.versionName ?: "1.0.0", s.model, s.chosenUrl))
+        val built = buildFor(a, draft)
         val isWgt = a.source?.name?.lowercase()?.endsWith(".tpk") != true
         log("Paket ${built.packageId} (${built.wgt.size / 1024} KB) erstellt.")
         val check = validateOrFail(built.wgt, a) ?: return
@@ -483,7 +503,8 @@ class TransferController(private val platform: Platform) {
             val res = SamsungTv.install(conn, signed, isWgt, ::log, { sent, total -> progress(sent, total) }, profile)
             if (res.success) {
                 runCatching { if (built.appId.isNotEmpty()) SamsungTv.launch(conn, built.appId) }
-                succeed("\"${s.appName.ifBlank { a.displayName }}\" ist auf dem Fernseher installiert" + limitationsText(check) +
+                succeed("\"${s.appName.ifBlank { a.displayName }}\" ist auf dem Fernseher installiert" +
+                    (if (draft) " – als ENTWURF: Oberfläche nachgebaut, Funktionen müssen nachprogrammiert werden (Details unter „Bericht“ in der App)" else limitationsText(check)) +
                     ". Sie finden die App unter Apps (ganz unten bzw. in der App-Leiste).")
             } else {
                 fail(res.message + if (res.rawOutput.isNotBlank()) "\n\nAntwort des Fernsehers: ${res.rawOutput.trim().takeLast(400)}" else "")

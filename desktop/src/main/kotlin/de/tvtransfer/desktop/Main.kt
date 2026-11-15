@@ -102,12 +102,12 @@ fun main() = application {
                     controller.openFile(f)
                 }
                 override val pickInstalledApp: (() -> Unit)? = null
-                override fun exportWgt() {
+                override fun exportWgt(draft: Boolean) {
                     val ch = JFileChooser().apply {
                         fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
                         dialogTitle = "Ordner für die .wgt-Datei wählen"
                     }
-                    if (ch.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) controller.exportWgt(ch.selectedFile)
+                    if (ch.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) if (draft) controller.exportDraft(ch.selectedFile) else controller.exportWgt(ch.selectedFile)
                 }
                 override val dropHint = "Datei hierher ziehen oder klicken"
             }

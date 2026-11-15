@@ -87,3 +87,47 @@ object BinaryXml {
         return String(chars)
     }
 }
+
+/** Baumansicht einer binären XML-Datei (z. B. Layouts aus res/layout), Attribute mit Typ und Rohwert. */
+object BinaryXmlTree {
+    data class Attr(val raw: String?, val type: Int, val data: Int)
+    class Node(val name: String, val attrs: Map<String, Attr>, val children: MutableList<Node> = ArrayList())
+
+    fun parse(data: ByteArray): Node? {
+        val bb = java.nio.ByteBuffer.wrap(data).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        if (data.size < 8 || bb.getShort(0).toInt() != 0x0003) return null
+        var strings: List<String> = emptyList()
+        var pos = bb.getShort(2).toInt() and 0xFFFF
+        val stack = ArrayDeque<Node>()
+        var root: Node? = null
+        while (pos + 8 <= data.size) {
+            val type = bb.getShort(pos).toInt() and 0xFFFF
+            val headerSize = bb.getShort(pos + 2).toInt() and 0xFFFF
+            val size = bb.getInt(pos + 4)
+            if (size <= 0 || pos + size > data.size) break
+            when (type) {
+                0x0001 -> strings = StringPool.read(bb, pos)
+                0x0102 -> {
+                    val ext = pos + headerSize
+                    val name = strings.getOrNull(bb.getInt(ext + 4)) ?: ""
+                    val attrStart = bb.getShort(ext + 8).toInt() and 0xFFFF
+                    val attrSize = bb.getShort(ext + 10).toInt() and 0xFFFF
+                    val count = bb.getShort(ext + 12).toInt() and 0xFFFF
+                    val attrs = LinkedHashMap<String, Attr>()
+                    for (i in 0 until count) {
+                        val a = ext + attrStart + i * attrSize
+                        val an = strings.getOrNull(bb.getInt(a + 4)) ?: continue
+                        val rawIdx = bb.getInt(a + 8)
+                        attrs[an] = Attr(if (rawIdx >= 0) strings.getOrNull(rawIdx) else null, bb.get(a + 15).toInt() and 0xFF, bb.getInt(a + 16))
+                    }
+                    val node = Node(name, attrs)
+                    if (stack.isEmpty()) root = node else stack.last().children += node
+                    stack.addLast(node)
+                }
+                0x0103 -> if (stack.isNotEmpty()) stack.removeLast()
+            }
+            pos += size
+        }
+        return root
+    }
+}

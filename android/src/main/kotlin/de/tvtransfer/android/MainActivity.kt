@@ -109,13 +109,17 @@ class MainActivity : ComponentActivity() {
 
     private val saveWgt = registerForActivityResult(ActivityResultContracts.CreateDocument("application/widget")) { uri ->
         if (uri == null) return@registerForActivityResult
-        controller.exportWgt(File(cacheDir, "dateien/export")) { f ->
+        val dir = File(cacheDir, "dateien/export")
+        val save: (File) -> Unit = { f ->
             runCatching {
                 contentResolver.openOutputStream(uri)!!.use { out -> f.inputStream().use { it.copyTo(out) } }
                 controller.setExportLocation(uri.lastPathSegment?.substringAfterLast(':') ?: uri.toString())
             }.onFailure { controller.log("Speichern fehlgeschlagen: ${it.message}") }
         }
+        if (exportAsDraft) controller.exportDraft(dir, save) else controller.exportWgt(dir, save)
     }
+
+    private var exportAsDraft = false
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importUri(uri)
@@ -127,7 +131,8 @@ class MainActivity : ComponentActivity() {
         val host = object : UiHost {
             override fun pickFile() = openDocument.launch(arrayOf("*/*"))
             override val pickInstalledApp: (() -> Unit) = { showAppPicker = true }
-            override fun exportWgt() {
+            override fun exportWgt(draft: Boolean) {
+                exportAsDraft = draft
                 // Speicherort wählen lassen (z. B. Downloads), danach konvertieren und dorthin kopieren
                 val name = controller.state.value.appName.filter { it.isLetterOrDigit() || it in " -_" }.ifBlank { "App" } + ".wgt"
                 saveWgt.launch(name)

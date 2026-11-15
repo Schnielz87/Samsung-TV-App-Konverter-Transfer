@@ -51,6 +51,9 @@ data class Analysis(
     val findings: List<Finding> = emptyList(),
 ) {
     val canConvert: Boolean get() = type.convertible && (type != SourceType.WEBVIEW_WRAPPER || urls.isNotEmpty())
+
+    /** Entwurf-Konverter möglich (echte Android-App ohne Schutzmaßnahme): Oberfläche wird nachgebaut, Logik fehlt. */
+    val canDraft: Boolean get() = type == SourceType.NATIVE_ANDROID && source != null
 }
 
 object Analyzer {
